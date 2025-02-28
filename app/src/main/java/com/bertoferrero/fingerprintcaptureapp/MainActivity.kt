@@ -11,37 +11,29 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.transitions.FadeTransition
 import com.bertoferrero.fingerprintcaptureapp.ui.theme.FingerPrintCaptureAppAndroidTheme
+import com.bertoferrero.fingerprintcaptureapp.views.MainScreen
+import org.opencv.android.OpenCVLoader
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        OpenCVLoader.initLocal()
         setContent {
             FingerPrintCaptureAppAndroidTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                /*Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
                         name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
+                }*/
+                Navigator(screen = MainScreen()){ navigator ->
+                    FadeTransition(navigator)
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    FingerPrintCaptureAppAndroidTheme {
-        Greeting("Android")
     }
 }
