@@ -13,7 +13,7 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
         saveMatrix(context, distCoeffsParamKey, distCoeffs)
     }
 
-    fun saveMatrix(context: Context, key: String, matrix: Mat) {
+    private fun saveMatrix(context: Context, key: String, matrix: Mat) {
         val sharedPreferences: SharedPreferences = context.getSharedPreferences("CalibrationData", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
         /*val rows = matrix.rows()
@@ -31,7 +31,7 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
         const val cameraMatrixParamKey = "cameraMatrix"
         const val distCoeffsParamKey = "distCoeffs"
 
-        public fun loadParameters(context: Context): CameraCalibrationParameters {
+        fun loadParameters(context: Context, throwExceptionIfEmpty: Boolean = true): CameraCalibrationParameters {
             val cameraMatrix = loadMatrix(context, cameraMatrixParamKey)
             val distCoeffs = loadMatrix(context, distCoeffsParamKey)
 
@@ -39,10 +39,14 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
                 return CameraCalibrationParameters(cameraMatrix, distCoeffs)
             }
 
-            throw Exception("No calibration parameters found")
+            // If the parameters are not found, throw an exception or return an empty object
+            if(throwExceptionIfEmpty) {
+                throw Exception("No calibration parameters found")
+            }
+            return CameraCalibrationParameters(Mat(), Mat())
         }
 
-        fun loadMatrix(context: Context, key: String): Mat? {
+        private fun loadMatrix(context: Context, key: String): Mat? {
             val sharedPreferences: SharedPreferences = context.getSharedPreferences("CalibrationData", Context.MODE_PRIVATE)
             //val rows = sharedPreferences.getInt("${key}_rows", -1)
             //val cols = sharedPreferences.getInt("${key}_cols", -1)

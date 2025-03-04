@@ -1,5 +1,5 @@
 // CalibrationManager.kt
-package com.bertoferrero.fingerprintcaptureapp.lib
+package com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller
 
 import android.content.Context
 import android.widget.Toast
@@ -8,7 +8,7 @@ import org.opencv.core.Mat
 import org.opencv.core.Size
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 
-class CalibrationManager(private val context: Context, private val onCalibrationFinished: () -> Unit) {
+class CalibrationCameraController(private val context: Context, private val onCalibrationFinished: () -> Unit): ICameraController {
 
     private val minSamplesAmount = 15
     private var captureFrame = false
@@ -26,7 +26,7 @@ class CalibrationManager(private val context: Context, private val onCalibration
     private val objPointsPool: MutableList<Mat> = mutableListOf()
     private val imgPointsPool: MutableList<Mat> = mutableListOf()
 
-    fun processFrameCalibration(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
+    override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
         if (!calibrating) {
             return inputFrame?.rgba() ?: Mat()
         }
@@ -63,7 +63,7 @@ class CalibrationManager(private val context: Context, private val onCalibration
                     imgPointsPool.add(imgPoints)
 
                     if (objPointsPool.size >= minSamplesAmount) {
-                        finishCalibration()
+                        finishProcess()
                     } else {
                         Toast.makeText(context, "${minSamplesAmount - objPointsPool.size} samples left", Toast.LENGTH_SHORT).show()
                     }
@@ -77,7 +77,7 @@ class CalibrationManager(private val context: Context, private val onCalibration
         return rgb
     }
 
-    fun initCalibration() {
+    override fun initProcess() {
         if (!calibrating) {
             calibrating = true
             arucoDictionary = org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
@@ -89,7 +89,7 @@ class CalibrationManager(private val context: Context, private val onCalibration
         }
     }
 
-    fun finishCalibration() {
+    override fun finishProcess() {
         if (calibrating) {
             calibrating = false
 
