@@ -13,11 +13,15 @@ import org.opencv.core.MatOfPoint
 import org.opencv.core.MatOfPoint2f
 import org.opencv.core.MatOfPoint3f
 import org.opencv.core.Point3
+import kotlin.math.pow
+import kotlin.math.round
+import kotlin.math.roundToLong
+import kotlin.math.sqrt
 
 class TestDistanceCameraController(private val context: Context): ICameraController {
 
     // Running properties
-    public var markerSize = 0.065f
+    public var markerSize = 0.173f
     public var arucoDictionaryType = org.opencv.objdetect.Objdetect.DICT_6X6_250
 
     // Running variables
@@ -108,11 +112,12 @@ class TestDistanceCameraController(private val context: Context): ICameraControl
                     var rvecs = Mat()
                     var tvecs = Mat()
 
+                    try {
 
                     val cornerMatOfPoint2f = MatOfPoint2f(corners[i].reshape(2,4))
                     val disctCoeffsMatOfDouble = MatOfDouble(distCoeffs)
 
-                    try {
+                        // Estimate the pose
                         org.opencv.calib3d.Calib3d.solvePnP(
                             objectPointsCp!!,
                             cornerMatOfPoint2f,
@@ -133,6 +138,22 @@ class TestDistanceCameraController(private val context: Context): ICameraControl
                             tvecs,
                             0.04f,
                             3
+                        )
+
+                        // Calculate the distance
+                        var distance = sqrt(
+                            (tvecs[0, 0][0].pow(2) + tvecs[1, 0][0].pow(2) + tvecs[2, 0][0].pow(2))
+                        )
+
+                        org.opencv.imgproc.Imgproc.putText(
+                            rgb,
+                            "Distance: ${round(distance*100)/100}m",
+                            org.opencv.core.Point(cornerMatOfPoint2f[1, 0][0], cornerMatOfPoint2f[1, 0][1]),
+                            org.opencv.imgproc.Imgproc.FONT_HERSHEY_SIMPLEX,
+                            1.0,
+                            org.opencv.core.Scalar(255.0, 0.0, 0.0),
+                            2,
+                            org.opencv.imgproc.Imgproc.LINE_AA
                         )
                     }
                     catch (e: Exception){
