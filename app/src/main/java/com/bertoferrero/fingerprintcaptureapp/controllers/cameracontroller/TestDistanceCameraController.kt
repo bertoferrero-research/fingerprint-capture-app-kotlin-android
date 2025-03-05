@@ -18,30 +18,30 @@ import kotlin.math.round
 import kotlin.math.roundToLong
 import kotlin.math.sqrt
 
-class TestDistanceCameraController(private val context: Context): ICameraController {
-
-    // Running properties
-    public var markerSize = 0.173f
-    public var arucoDictionaryType = org.opencv.objdetect.Objdetect.DICT_6X6_250
-
+class TestDistanceCameraController(
+    private val context: Context,
+    public var markerSize: Float = 0.173f,
+    public var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250
+) : ICameraController {
     // Running variables
     private var running = false
     private var arucoDetector: org.opencv.objdetect.ArucoDetector? = null
-    private var objectPoints : MatOfPoint3f? = null //Definición del objeto a buscar
+    private var objectPoints: MatOfPoint3f? = null //Definición del objeto a buscar
 
     // Camera calibration parameters
     private lateinit var cameraMatrix: Mat
     private lateinit var distCoeffs: Mat
 
     //TODO construct to get the camera matrix and distCoeffs, if not, warn the user with a toast but run with empty values
-    init{
+    init {
         //Load camera correction parameters
-        try{
+        try {
             val calibrationParameters = CameraCalibrationParameters.loadParameters(context)
             cameraMatrix = calibrationParameters.cameraMatrix
             distCoeffs = calibrationParameters.distCoeffs
-        } catch (e: Exception){
-            Toast.makeText(context, "No camera calibration parameters found", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "No camera calibration parameters found", Toast.LENGTH_SHORT)
+                .show()
             cameraMatrix = Mat()
             distCoeffs = Mat()
         }
@@ -50,9 +50,11 @@ class TestDistanceCameraController(private val context: Context): ICameraControl
     override fun initProcess() {
         if (!running) {
             running = true
-            val arucoDictionary = org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
+            val arucoDictionary =
+                org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
             val arucoDetectorParameters = org.opencv.objdetect.DetectorParameters()
-            arucoDetector = org.opencv.objdetect.ArucoDetector(arucoDictionary, arucoDetectorParameters)
+            arucoDetector =
+                org.opencv.objdetect.ArucoDetector(arucoDictionary, arucoDetectorParameters)
 
             //Definimos el formato del aruco a buscar (un cuadrado)
             val halfMarkerSize = markerSize / 2.0
@@ -94,16 +96,16 @@ class TestDistanceCameraController(private val context: Context): ICameraControl
 
 
         // Detect markers
-        val corners : MutableList<Mat> = mutableListOf()
-        val ids : Mat = Mat()
+        val corners: MutableList<Mat> = mutableListOf()
+        val ids: Mat = Mat()
         arucoDetectorCp!!.detectMarkers(gray, corners, ids)
 
         // Process the detected markers
-        if(corners.size > 0){
+        if (corners.size > 0) {
             // Draw the detected markers
             org.opencv.objdetect.Objdetect.drawDetectedMarkers(rgb, corners, ids)
 
-            if(corners.size > 0 && corners.size.toLong() == ids.total()) {
+            if (corners.size > 0 && corners.size.toLong() == ids.total()) {
                 for (i in 0 until corners.size) {
                     if (corners[i].total() < 4) { //Check here if the corners are enough to estimate the pose, if not we get an exception from solvePnP
                         continue
@@ -114,8 +116,8 @@ class TestDistanceCameraController(private val context: Context): ICameraControl
 
                     try {
 
-                    val cornerMatOfPoint2f = MatOfPoint2f(corners[i].reshape(2,4))
-                    val disctCoeffsMatOfDouble = MatOfDouble(distCoeffs)
+                        val cornerMatOfPoint2f = MatOfPoint2f(corners[i].reshape(2, 4))
+                        val disctCoeffsMatOfDouble = MatOfDouble(distCoeffs)
 
                         // Estimate the pose
                         org.opencv.calib3d.Calib3d.solvePnP(
@@ -141,27 +143,28 @@ class TestDistanceCameraController(private val context: Context): ICameraControl
                         )
 
                         // Calculate the distance
-                        var distance = sqrt(
+                        val distance = sqrt(
                             (tvecs[0, 0][0].pow(2) + tvecs[1, 0][0].pow(2) + tvecs[2, 0][0].pow(2))
                         )
 
                         org.opencv.imgproc.Imgproc.putText(
                             rgb,
-                            "Distance: ${round(distance*100)/100}m",
-                            org.opencv.core.Point(cornerMatOfPoint2f[1, 0][0], cornerMatOfPoint2f[1, 0][1]),
+                            "Distance: ${round(distance * 100) / 100}m",
+                            org.opencv.core.Point(
+                                cornerMatOfPoint2f[1, 0][0],
+                                cornerMatOfPoint2f[1, 0][1]
+                            ),
                             org.opencv.imgproc.Imgproc.FONT_HERSHEY_SIMPLEX,
                             1.0,
                             org.opencv.core.Scalar(255.0, 0.0, 0.0),
                             2,
                             org.opencv.imgproc.Imgproc.LINE_AA
                         )
-                    }
-                    catch (e: Exception){
+                    } catch (e: Exception) {
                         println(e)
                     }
                 }
             }
-
 
 
         }

@@ -1,5 +1,6 @@
 package com.bertoferrero.fingerprintcaptureapp.views
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,15 +19,28 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.components.OpenCvCamera
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestDistanceCameraController
+import com.bertoferrero.fingerprintcaptureapp.models.ViewParametersManager
+import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
+import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
+import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 
 class TestDistanceScreen : Screen {
 
     private lateinit var cameraController: TestDistanceCameraController
+    private lateinit var viewParametersManager: ViewParametersManager
     private var setterRunningContent: (Boolean) -> Unit = {}
 
     @Composable
@@ -34,8 +48,14 @@ class TestDistanceScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val (runningContent, setRunningContent) = remember { mutableStateOf(false) }
         setterRunningContent = setRunningContent
+
         val context = LocalContext.current
-        cameraController = remember { TestDistanceCameraController(context) }
+        viewParametersManager = remember { ViewParametersManager(context) }
+        cameraController = remember { TestDistanceCameraController(
+            context,
+            viewParametersManager.markerSize,
+            viewParametersManager.arucoDictionaryType
+        ) }
 
         BackHandler {
             if (runningContent) {
@@ -65,6 +85,23 @@ class TestDistanceScreen : Screen {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+
+                NumberField<Float>(
+                    value = cameraController.markerSize,
+                    onValueChange = {
+                        cameraController.markerSize = it
+                        viewParametersManager.markerSize = it
+                                    },
+                    label = { Text("Marker size (m)") }
+                )
+
+                ArucoTypeDropdownMenu(
+                    selectedArucoType = ArucoDictionaryType.fromInt(cameraController.arucoDictionaryType)!!,
+                    onArucoTypeSelected = {
+                        cameraController.arucoDictionaryType = it.value
+                        viewParametersManager.arucoDictionaryType = it.value
+                    }
+                )
 
                 Button(
                     onClick = {

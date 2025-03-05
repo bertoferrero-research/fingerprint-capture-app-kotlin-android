@@ -8,16 +8,19 @@ import org.opencv.core.Mat
 import org.opencv.core.Size
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 
-class CalibrationCameraController(private val context: Context, private val onCalibrationFinished: () -> Unit): ICameraController {
+class CalibrationCameraController(
+    private val context: Context,
+    private val onCalibrationFinished: () -> Unit,
+    var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
+    var charucoVerticalSquares: Int = 7,
+    var charucoHorizontalSquares: Int = 5,
+    var charucoSquareLength: Float = 0.035f,
+    var charucoMarkerLength: Float = 0.018f
+    ) : ICameraController {
 
     private val minSamplesAmount = 15
     private var captureFrame = false
     private var imageSize: Size? = null
-    private var arucoDictionaryType = org.opencv.objdetect.Objdetect.DICT_6X6_250
-    private var charucoVerticalSquares = 7
-    private var charucoHorizontalSquares = 5
-    private var charucoSquareLength = 0.035f
-    private var charucoMarkerLength = 0.018f
     private var calibrating = false
     private var arucoDictionary: org.opencv.objdetect.Dictionary? = null
     private var charucoBoard: org.opencv.objdetect.CharucoBoard? = null
@@ -46,7 +49,11 @@ class CalibrationCameraController(private val context: Context, private val onCa
         charucoDetector?.detectBoard(gray, charucoCorners, charucoIds)
 
         if (charucoCorners.total() > 5 && charucoCorners.total() == charucoIds.total()) {
-            org.opencv.objdetect.Objdetect.drawDetectedCornersCharuco(rgb, charucoCorners, charucoIds)
+            org.opencv.objdetect.Objdetect.drawDetectedCornersCharuco(
+                rgb,
+                charucoCorners,
+                charucoIds
+            )
 
             if (captureFrame) {
                 captureFrame = false
@@ -58,14 +65,23 @@ class CalibrationCameraController(private val context: Context, private val onCa
                     detectedCorners.add(corner)
                 }
                 try {
-                    charucoBoard?.matchImagePoints(detectedCorners, charucoIds, objPoints, imgPoints)
+                    charucoBoard?.matchImagePoints(
+                        detectedCorners,
+                        charucoIds,
+                        objPoints,
+                        imgPoints
+                    )
                     objPointsPool.add(objPoints)
                     imgPointsPool.add(imgPoints)
 
                     if (objPointsPool.size >= minSamplesAmount) {
                         finishProcess()
                     } else {
-                        Toast.makeText(context, "${minSamplesAmount - objPointsPool.size} samples left", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "${minSamplesAmount - objPointsPool.size} samples left",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 } catch (e: Exception) {
                     Toast.makeText(context, "Error capturing frame", Toast.LENGTH_SHORT).show()
@@ -80,8 +96,14 @@ class CalibrationCameraController(private val context: Context, private val onCa
     override fun initProcess() {
         if (!calibrating) {
             calibrating = true
-            arucoDictionary = org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
-            charucoBoard = org.opencv.objdetect.CharucoBoard(Size(charucoVerticalSquares.toDouble(), charucoHorizontalSquares.toDouble()), charucoSquareLength, charucoMarkerLength, arucoDictionary)
+            arucoDictionary =
+                org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
+            charucoBoard = org.opencv.objdetect.CharucoBoard(
+                Size(
+                    charucoVerticalSquares.toDouble(),
+                    charucoHorizontalSquares.toDouble()
+                ), charucoSquareLength, charucoMarkerLength, arucoDictionary
+            )
             charucoDetector = org.opencv.objdetect.CharucoDetector(charucoBoard)
 
             objPointsPool.clear()
@@ -99,7 +121,15 @@ class CalibrationCameraController(private val context: Context, private val onCa
                 val rvecs = mutableListOf<Mat>()
                 val tvecs = mutableListOf<Mat>()
                 try {
-                    org.opencv.calib3d.Calib3d.calibrateCamera(objPointsPool, imgPointsPool, imageSize, cameraMatrix, distCoeffs, rvecs, tvecs)
+                    org.opencv.calib3d.Calib3d.calibrateCamera(
+                        objPointsPool,
+                        imgPointsPool,
+                        imageSize,
+                        cameraMatrix,
+                        distCoeffs,
+                        rvecs,
+                        tvecs
+                    )
                     val calibrationObject = CameraCalibrationParameters(cameraMatrix, distCoeffs)
                     calibrationObject.saveParameters(context)
 
