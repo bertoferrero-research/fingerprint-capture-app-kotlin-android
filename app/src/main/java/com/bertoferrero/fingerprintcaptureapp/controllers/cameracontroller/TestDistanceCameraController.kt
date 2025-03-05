@@ -3,6 +3,7 @@ package com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller
 
 import android.content.Context
 import android.widget.Toast
+import com.bertoferrero.fingerprintcaptureapp.lib.openCvTools.detectMarkers
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Core
@@ -26,8 +27,6 @@ class TestDistanceCameraController(
     // Running variables
     private var running = false
     private var arucoDetector: org.opencv.objdetect.ArucoDetector? = null
-    private var objectPoints: MatOfPoint3f? = null //Definición del objeto a buscar
-
     // Camera calibration parameters
     private lateinit var cameraMatrix: Mat
     private lateinit var distCoeffs: Mat
@@ -56,15 +55,6 @@ class TestDistanceCameraController(
             arucoDetector =
                 org.opencv.objdetect.ArucoDetector(arucoDictionary, arucoDetectorParameters)
 
-            //Definimos el formato del aruco a buscar (un cuadrado)
-            val halfMarkerSize = markerSize / 2.0
-            objectPoints = MatOfPoint3f(
-                Point3(-halfMarkerSize, halfMarkerSize, 0.0),
-                Point3(halfMarkerSize, halfMarkerSize, 0.0),
-                Point3(halfMarkerSize, -halfMarkerSize, 0.0),
-                Point3(-halfMarkerSize, -halfMarkerSize, 0.0)
-            )
-            objectPoints!!.convertTo(objectPoints, CvType.CV_32FC3)
         }
     }
 
@@ -72,103 +62,55 @@ class TestDistanceCameraController(
         if (running) {
             running = false
             arucoDetector = null
-            objectPoints = null
         }
     }
 
     override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
-        if (!running) {
+        if (!running || inputFrame == null) {
             return inputFrame?.rgba() ?: Mat()
         }
-        // copy general parameters to local variables
-        var arucoDetectorCp = arucoDetector
-        var objectPointsCp = objectPoints
-
-        val frame = inputFrame?.rgba() ?: Mat()
 
         // Prepare the input frame
+        val frame = inputFrame.rgba() ?: Mat()
         val rgb = Mat()
         org.opencv.imgproc.Imgproc.cvtColor(frame, rgb, org.opencv.imgproc.Imgproc.COLOR_RGBA2RGB)
-        val gray = inputFrame?.gray()
-        //Undistort the image
-        //val undistorted = Mat()
-        //org.opencv.calib3d.Calib3d.undistort(gray, undistorted, cameraMatrix, distCoeffs)
 
-
-        // Detect markers
+        //Detectamos los marcadores
         val corners: MutableList<Mat> = mutableListOf()
         val ids: Mat = Mat()
-        arucoDetectorCp!!.detectMarkers(gray, corners, ids)
-
-        // Process the detected markers
-        if (corners.size > 0) {
-            // Draw the detected markers
-            org.opencv.objdetect.Objdetect.drawDetectedMarkers(rgb, corners, ids)
-
-            if (corners.size > 0 && corners.size.toLong() == ids.total()) {
-                for (i in 0 until corners.size) {
-                    if (corners[i].total() < 4) { //Check here if the corners are enough to estimate the pose, if not we get an exception from solvePnP
-                        continue
-                    }
-
-                    var rvecs = Mat()
-                    var tvecs = Mat()
-
-                    try {
-
-                        val cornerMatOfPoint2f = MatOfPoint2f(corners[i].reshape(2, 4))
-                        val disctCoeffsMatOfDouble = MatOfDouble(distCoeffs)
-
-                        // Estimate the pose
-                        org.opencv.calib3d.Calib3d.solvePnP(
-                            objectPointsCp!!,
-                            cornerMatOfPoint2f,
-                            cameraMatrix,
-                            disctCoeffsMatOfDouble,
-                            rvecs,
-                            tvecs,
-                            false,
-                            org.opencv.calib3d.Calib3d.SOLVEPNP_ITERATIVE
-                        )
-
-                        // Draw the axis
-                        org.opencv.calib3d.Calib3d.drawFrameAxes(
-                            rgb,
-                            cameraMatrix,
-                            disctCoeffsMatOfDouble,
-                            rvecs,
-                            tvecs,
-                            0.04f,
-                            3
-                        )
-
-                        // Calculate the distance
-                        val distance = sqrt(
-                            (tvecs[0, 0][0].pow(2) + tvecs[1, 0][0].pow(2) + tvecs[2, 0][0].pow(2))
-                        )
-
-                        org.opencv.imgproc.Imgproc.putText(
-                            rgb,
-                            "Distance: ${round(distance * 100) / 100}m",
-                            org.opencv.core.Point(
-                                cornerMatOfPoint2f[1, 0][0],
-                                cornerMatOfPoint2f[1, 0][1]
-                            ),
-                            org.opencv.imgproc.Imgproc.FONT_HERSHEY_SIMPLEX,
-                            1.0,
-                            org.opencv.core.Scalar(255.0, 0.0, 0.0),
-                            2,
-                            org.opencv.imgproc.Imgproc.LINE_AA
-                        )
-                    } catch (e: Exception) {
-                        println(e)
-                    }
-                }
-            }
-
-
+        val detectedMarkers = detectMarkers(inputFrame, markerSize, arucoDetector!!, cameraMatrix, distCoeffs, corners, ids)
+        if(detectedMarkers.size == 0){
+            return rgb
         }
 
+        //Imprimimos la información
+        val disctCoeffsMatOfDouble = MatOfDouble(distCoeffs)
+        org.opencv.objdetect.Objdetect.drawDetectedMarkers(rgb, corners, ids)
+        for( i in 0 until detectedMarkers.size){
+            org.opencv.calib3d.Calib3d.drawFrameAxes(
+                rgb,
+                cameraMatrix,
+                disctCoeffsMatOfDouble,
+                detectedMarkers[i].rvecs,
+                detectedMarkers[i].tvecs,
+                0.04f,
+                3
+            )
+
+            org.opencv.imgproc.Imgproc.putText(
+                rgb,
+                "Distance: ${round(detectedMarkers[i].distance * 100) / 100}m",
+                org.opencv.core.Point(
+                    detectedMarkers[i].corners[1, 0][0],
+                    detectedMarkers[i].corners[1, 0][1]
+                ),
+                org.opencv.imgproc.Imgproc.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                org.opencv.core.Scalar(255.0, 0.0, 0.0),
+                2,
+                org.opencv.imgproc.Imgproc.LINE_AA
+            )
+        }
         return rgb
     }
 
