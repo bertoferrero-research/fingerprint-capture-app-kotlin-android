@@ -99,7 +99,7 @@ class TestDistanceCameraController(
 
             org.opencv.imgproc.Imgproc.putText(
                 rgb,
-                "Distance: ${round(detectedMarkers[i].distance * 100) / 100}m",
+                "Distance: ${round(detectedMarkers[i].distance * 10000) / 10000}m",
                 org.opencv.core.Point(
                     detectedMarkers[i].corners[1, 0][0],
                     detectedMarkers[i].corners[1, 0][1]

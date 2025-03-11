@@ -21,7 +21,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.components.OpenCvCamera
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.CalibrationCameraController
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.TextField
 import com.bertoferrero.fingerprintcaptureapp.models.ViewParametersManager
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
@@ -50,8 +49,8 @@ class CalibratingScreen : Screen {
                     setCalibratingContent(false)
                 },
                 viewParametersManager.arucoDictionaryType,
-                viewParametersManager.charucoVerticalSquares,
-                viewParametersManager.charucoHorizontalSquares,
+                viewParametersManager.charucoXSquares,
+                viewParametersManager.charucoYSquares,
                 viewParametersManager.charucoSquareLength,
                 viewParametersManager.charucoMarkerLength
             )
@@ -88,18 +87,18 @@ class CalibratingScreen : Screen {
             ) {
 
                 NumberField<Int>(
-                    value = calibrationCameraController.charucoVerticalSquares,
+                    value = calibrationCameraController.charucoXSquares,
                     onValueChange = {
-                        calibrationCameraController.charucoVerticalSquares = it
-                        viewParametersManager.charucoVerticalSquares = it
+                        calibrationCameraController.charucoXSquares = it
+                        viewParametersManager.charucoXSquares = it
                     },
                     label = { Text("Charuco vertical squares") }
                 )
                 NumberField<Int>(
-                    value = calibrationCameraController.charucoHorizontalSquares,
+                    value = calibrationCameraController.charucoYSquares,
                     onValueChange = {
-                        calibrationCameraController.charucoHorizontalSquares = it
-                        viewParametersManager.charucoHorizontalSquares = it
+                        calibrationCameraController.charucoYSquares = it
+                        viewParametersManager.charucoYSquares = it
                     },
                     label = { Text("Charuco horizontal squares") }
                 )

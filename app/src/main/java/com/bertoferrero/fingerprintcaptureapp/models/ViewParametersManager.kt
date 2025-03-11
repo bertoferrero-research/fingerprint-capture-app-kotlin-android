@@ -35,23 +35,23 @@ class ViewParametersManager(private val context: Context) {
 
     // Calibrating
 
-    var charucoVerticalSquares: Int
+    var charucoXSquares: Int
         get() = sharedPreferences.getInt(
-            "charucoVerticalSquares",
+            "charucoXSquares",
             7
         )
         set(value) {
-            sharedPreferences.edit().putInt("charucoVerticalSquares", value).apply()
+            sharedPreferences.edit().putInt("charucoXSquares", value).apply()
         }
 
 
-    var charucoHorizontalSquares: Int
+    var charucoYSquares: Int
         get() = sharedPreferences.getInt(
-            "charucoHorizontalSquares",
+            "charucoYSquares",
             5
         )
         set(value) {
-            sharedPreferences.edit().putInt("charucoHorizontalSquares", value).apply()
+            sharedPreferences.edit().putInt("charucoYSquares", value).apply()
         }
 
     var charucoSquareLength: Float

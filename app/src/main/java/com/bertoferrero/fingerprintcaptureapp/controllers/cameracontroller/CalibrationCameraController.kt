@@ -12,8 +12,8 @@ class CalibrationCameraController(
     private val context: Context,
     private val onCalibrationFinished: () -> Unit,
     var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
-    var charucoVerticalSquares: Int = 7,
-    var charucoHorizontalSquares: Int = 5,
+    var charucoXSquares: Int = 7,
+    var charucoYSquares: Int = 5,
     var charucoSquareLength: Float = 0.035f,
     var charucoMarkerLength: Float = 0.018f
     ) : ICameraController {
@@ -100,8 +100,8 @@ class CalibrationCameraController(
                 org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
             charucoBoard = org.opencv.objdetect.CharucoBoard(
                 Size(
-                    charucoVerticalSquares.toDouble(),
-                    charucoHorizontalSquares.toDouble()
+                    charucoXSquares.toDouble(),
+                    charucoYSquares.toDouble()
                 ), charucoSquareLength, charucoMarkerLength, arucoDictionary
             )
             charucoDetector = org.opencv.objdetect.CharucoDetector(charucoBoard)
