@@ -56,9 +56,11 @@ class OpenCvCamera (
     }
 
     @Composable
-    fun Render(){
+    fun Render(
+        modifier: Modifier = Modifier
+    ){
         if(checkPermissions()){
-            RenderCameraView()
+            RenderCameraView(modifier)
             //RenderNativeCameraView()
         }
     }
@@ -68,16 +70,20 @@ class OpenCvCamera (
      * This method should be called to render the camera view
      */
     @Composable
-    private fun RenderCameraView() {
+    private fun RenderCameraView(
+        modifier: Modifier = Modifier
+    ) {
         val context = LocalContext.current
-       val cameraView = remember { JavaCamera2View(context, 0) }
+        val cameraView = remember { JavaCamera2View(context, 0) }
 
         AndroidView(
             factory = { cameraView },
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize(),
             update = {
                 it.visibility = SurfaceView.VISIBLE
-                it.setCameraIndex(CameraCharacteristics.LENS_FACING_FRONT)
+                //it.setCameraIndex(CameraCharacteristics.LENS_FACING_FRONT)
+                //it.setMaxFrameSize(80000, 80000)
+                it.enableFpsMeter()
                 it.setCvCameraViewListener(cameraListener)
                 it.setCameraPermissionGranted()
                 it.enableView()

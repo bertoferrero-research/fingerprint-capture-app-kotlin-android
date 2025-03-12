@@ -162,12 +162,13 @@ class CalibratingScreen : Screen {
                     }
 
                     override fun onCameraViewStarted(width: Int, height: Int) {
+                        var a = 3
                     }
 
                     override fun onCameraViewStopped() {
                     }
                 }
-            ).Render()
+            ).Render(Modifier.padding(innerPadding))
         }
     }
 }

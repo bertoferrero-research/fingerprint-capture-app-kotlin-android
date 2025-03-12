@@ -121,7 +121,7 @@ class CalibrationCameraController(
                 val rvecs = mutableListOf<Mat>()
                 val tvecs = mutableListOf<Mat>()
                 try {
-                    org.opencv.calib3d.Calib3d.calibrateCamera(
+                    val overallRmsError = org.opencv.calib3d.Calib3d.calibrateCamera(
                         objPointsPool,
                         imgPointsPool,
                         imageSize,
@@ -133,11 +133,16 @@ class CalibrationCameraController(
                     val calibrationObject = CameraCalibrationParameters(cameraMatrix, distCoeffs)
                     calibrationObject.saveParameters(context)
 
-                    //var calibrationCheck = CameraCalibrationParameters.loadParameters(context)
+                    var calibrationCheck = CameraCalibrationParameters.loadParameters(context)
 
-                    Toast.makeText(context, "Camera calibrated", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Camera calibrated, error: ${overallRmsError}", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
                     Toast.makeText(context, "Error calibrating camera", Toast.LENGTH_SHORT).show()
+                } finally {
+                    cameraMatrix.release()
+                    distCoeffs.release()
+                    rvecs.forEach { it.release() }
+                    tvecs.forEach { it.release() }
                 }
             }
 
