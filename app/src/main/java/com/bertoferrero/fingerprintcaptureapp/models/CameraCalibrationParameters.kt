@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.bertoferrero.fingerprintcaptureapp.lib.MatSerialization
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.Scalar
 
 class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
 
@@ -32,8 +33,8 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
         const val distCoeffsParamKey = "distCoeffs"
 
         fun loadParameters(context: Context, throwExceptionIfEmpty: Boolean = true): CameraCalibrationParameters {
-            val cameraMatrix = loadMatrix(context, cameraMatrixParamKey)
-            val distCoeffs = loadMatrix(context, distCoeffsParamKey)
+            var cameraMatrix = loadMatrix(context, cameraMatrixParamKey)
+            var distCoeffs = loadMatrix(context, distCoeffsParamKey)
 
             if(cameraMatrix != null && distCoeffs != null){
                 return CameraCalibrationParameters(cameraMatrix, distCoeffs)
@@ -43,7 +44,12 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
             if(throwExceptionIfEmpty) {
                 throw Exception("No calibration parameters found")
             }
-            return CameraCalibrationParameters(Mat(), Mat())
+
+            //Initialize the parameters with empty matrices based on the information from https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
+            cameraMatrix = Mat(3, 3, CvType.CV_32F, Scalar(0.0))
+            distCoeffs = Mat(1, 5, CvType.CV_32F, Scalar(0.0))
+
+            return CameraCalibrationParameters(cameraMatrix, distCoeffs)
         }
 
         private fun loadMatrix(context: Context, key: String): Mat? {

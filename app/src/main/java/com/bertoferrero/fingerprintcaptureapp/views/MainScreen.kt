@@ -33,6 +33,11 @@ class MainScreen : Screen {
                     Text("Calibrate")
                 }
                 Button(onClick= {
+                    navigator.push(CalibrationParametersEditorScreen())
+                }){
+                    Text("Calibration Parameters")
+                }
+                Button(onClick= {
                     navigator.push(TestDistanceScreen())
                 }){
                     Text("Distance Test")

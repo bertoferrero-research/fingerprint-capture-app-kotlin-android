@@ -18,6 +18,7 @@ fun <T : Number>NumberField(
 
     val change : (String) -> Unit = { it ->
         val newValue = when (value) {
+            is Double -> it.toDoubleOrNull()
             is Float -> it.toFloatOrNull()
             is Int -> it.toIntOrNull()
             else -> null
