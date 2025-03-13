@@ -60,7 +60,12 @@ fun detectMarkers(
         Point3(-halfMarkerSize, -halfMarkerSize, 0.0)
     )
     //Prepare the distCoeffs in the proper format
-    val disctCoeffsMatOfDouble = MatOfDouble(distCoeffs)
+    var disctCoeffsMatOfDouble = MatOfDouble()
+    try{
+        disctCoeffsMatOfDouble = MatOfDouble(distCoeffs)
+    }catch (e: Exception){
+        e.printStackTrace()
+    }
 
     // Prepare the input frame
     val gray = inputFrame.gray()

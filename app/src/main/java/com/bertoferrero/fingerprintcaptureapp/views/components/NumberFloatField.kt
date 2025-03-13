@@ -6,11 +6,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.Modifier
 
 @Composable
 fun <T : Number>NumberField(
     value: T,
     onValueChange: (T) -> Unit,
+    modifier: Modifier = Modifier,
     label: @Composable() (() -> Unit)? = null
 ) {
 
@@ -33,7 +35,8 @@ fun <T : Number>NumberField(
         value = text.value,
         keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
         onValueChange = change,
-        label = label
+        label = label,
+        modifier = modifier
     )
 
 }
