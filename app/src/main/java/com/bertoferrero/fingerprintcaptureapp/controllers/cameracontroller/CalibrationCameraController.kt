@@ -11,6 +11,7 @@ import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 class CalibrationCameraController(
     private val context: Context,
     private val onCalibrationFinished: () -> Unit,
+    var minSamplesAmount: Int = 15,
     var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
     var charucoXSquares: Int = 7,
     var charucoYSquares: Int = 5,
@@ -18,7 +19,6 @@ class CalibrationCameraController(
     var charucoMarkerLength: Float = 0.018f
     ) : ICameraController {
 
-    private val minSamplesAmount = 15
     private var captureFrame = false
     private var imageSize: Size? = null
     private var calibrating = false

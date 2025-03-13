@@ -48,7 +48,7 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
             //Initialize the parameters with empty matrices based on the information from
             // https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
             cameraMatrix = Mat(3, 3, CvType.CV_32F, Scalar(0.0))
-            distCoeffs = Mat(1, 5, CvType.CV_32F, Scalar(0.0))
+            distCoeffs = Mat(1, 5, CvType.CV_64FC1, Scalar(0.0))
 
             return CameraCalibrationParameters(cameraMatrix, distCoeffs)
         }

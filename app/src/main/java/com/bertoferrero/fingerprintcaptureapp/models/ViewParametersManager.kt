@@ -35,6 +35,15 @@ class ViewParametersManager(private val context: Context) {
 
     // Calibrating
 
+    var calibrationSamples: Int
+        get() = sharedPreferences.getInt(
+            "calibrationSamples",
+            15
+        )
+        set(value) {
+            sharedPreferences.edit().putInt("calibrationSamples", value).apply()
+        }
+
     var charucoXSquares: Int
         get() = sharedPreferences.getInt(
             "charucoXSquares",

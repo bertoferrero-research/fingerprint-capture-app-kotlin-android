@@ -19,15 +19,20 @@ fun <T : Number>NumberField(
     val text = remember { mutableStateOf(value.toString())}
 
     val change : (String) -> Unit = { it ->
-        val newValue = when (value) {
-            is Double -> it.toDoubleOrNull()
-            is Float -> it.toFloatOrNull()
-            is Int -> it.toIntOrNull()
-            else -> null
-        }
-        if(newValue != null) {
-            onValueChange(newValue as T)
+        if (it.isEmpty()) {
             text.value = it
+        }
+        else {
+            val newValue = when (value) {
+                is Double -> it.toDoubleOrNull()
+                is Float -> it.toFloatOrNull()
+                is Int -> it.toIntOrNull()
+                else -> null
+            }
+            if (newValue != null) {
+                onValueChange(newValue as T)
+                text.value = it
+            }
         }
     }
 

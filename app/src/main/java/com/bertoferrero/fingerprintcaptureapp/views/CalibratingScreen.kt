@@ -48,6 +48,7 @@ class CalibratingScreen : Screen {
                 onCalibrationFinished = {
                     setCalibratingContent(false)
                 },
+                viewParametersManager.calibrationSamples,
                 viewParametersManager.arucoDictionaryType,
                 viewParametersManager.charucoXSquares,
                 viewParametersManager.charucoYSquares,
@@ -86,6 +87,14 @@ class CalibratingScreen : Screen {
                 verticalArrangement = Arrangement.Center
             ) {
 
+                NumberField<Int>(
+                    value = calibrationCameraController.minSamplesAmount,
+                    onValueChange = {
+                        calibrationCameraController.minSamplesAmount = it
+                        viewParametersManager.calibrationSamples = it
+                    },
+                    label = { Text("Samples to take") }
+                )
                 NumberField<Int>(
                     value = calibrationCameraController.charucoXSquares,
                     onValueChange = {
