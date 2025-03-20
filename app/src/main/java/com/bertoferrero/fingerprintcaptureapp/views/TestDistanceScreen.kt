@@ -25,6 +25,7 @@ import com.bertoferrero.fingerprintcaptureapp.models.ViewParametersManager
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
+import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMenu
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 
@@ -84,6 +85,16 @@ class TestDistanceScreen : Screen {
                         viewParametersManager.markerSize = it
                                     },
                     label = { Text("Marker size (m)") }
+                )
+
+                SimpleDropdownMenu(
+                    label = "Method",
+                    options = arrayOf("M1 - Calibration", "M2 - Javi", "M3 - Pixel ratio", "M4 - horizontal FOV", "M5 - horizontal FOV 2", "M6 - Calculated camera matrix"),
+                    values = arrayOf(1, 2, 3, 4, 5, 6),
+                    onOptionSelected = {
+                        cameraController.method = it
+                    },
+                    selectedValue = cameraController.method,
                 )
 
                 ArucoTypeDropdownMenu(
