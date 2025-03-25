@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.bertoferrero.fingerprintcaptureapp.components.OpenCvCamera
+import com.bertoferrero.fingerprintcaptureapp.views.components.OpenCvCamera
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.ui.unit.dp

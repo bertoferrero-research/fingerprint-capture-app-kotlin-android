@@ -1,7 +1,8 @@
-package com.bertoferrero.fingerprintcaptureapp.components
+package com.bertoferrero.fingerprintcaptureapp.views.components
 
-import android.hardware.camera2.CameraCharacteristics
+import android.os.Build
 import android.view.SurfaceView
+import androidx.annotation.RequiresApi
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -13,15 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bertoferrero.fingerprintcaptureapp.components.CameraPermissionsViewModel
+import com.bertoferrero.fingerprintcaptureapp.components.FixedFocusJavaCamera2View
 import dev.icerock.moko.permissions.PermissionState
 import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.compose.BindEffect
 import dev.icerock.moko.permissions.compose.PermissionsControllerFactory
 import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import org.opencv.android.CameraBridgeViewBase
-import org.opencv.android.JavaCamera2View
-import org.opencv.android.NativeCameraView
-import org.opencv.core.Mat
 
 class OpenCvCamera (
     private val cameraListener :CameraBridgeViewBase.CvCameraViewListener2
@@ -69,12 +69,13 @@ class OpenCvCamera (
     /**
      * This method should be called to render the camera view
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     @Composable
     private fun RenderCameraView(
         modifier: Modifier = Modifier
     ) {
         val context = LocalContext.current
-        val cameraView = remember { JavaCamera2View(context, 0) }
+        val cameraView = remember { FixedFocusJavaCamera2View(context, 0) }
 
         AndroidView(
             factory = { cameraView },
@@ -86,6 +87,7 @@ class OpenCvCamera (
                 it.enableFpsMeter()
                 it.setCvCameraViewListener(cameraListener)
                 it.setCameraPermissionGranted()
+                it.focusable = CameraBridgeViewBase.NOT_FOCUSABLE
                 it.enableView()
             },
             onRelease = {

@@ -20,7 +20,7 @@ class TestDistanceCameraController(
     private val context: Context,
     public var markerSize: Float = 0.173f,
     public var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
-    public var method: Int = 1,
+    public var method: Int = 3,
 ) : ICameraController {
     // Running variables
     private var running = false
@@ -149,7 +149,7 @@ class TestDistanceCameraController(
             )
 
             // Convert distance to meters
-            val distance = detectedMarkers[i].distance / 1000
+            val distance = detectedMarkers[i].distance
 
             org.opencv.imgproc.Imgproc.putText(
                 rgb,
@@ -309,8 +309,22 @@ class TestDistanceCameraController(
                     rgb,
                     "Distance: $distance",
                     org.opencv.core.Point(
-                        cornerMatOfPoint2f[1, 0][0],
-                        cornerMatOfPoint2f[1, 0][1]
+                        cornerMatOfPoint2f[0, 0][0],
+                        cornerMatOfPoint2f[0, 0][1]
+                    ),
+                    org.opencv.imgproc.Imgproc.FONT_HERSHEY_SIMPLEX,
+                    1.0,
+                    org.opencv.core.Scalar(255.0, 0.0, 0.0),
+                    2,
+                    org.opencv.imgproc.Imgproc.LINE_AA
+                )
+
+                org.opencv.imgproc.Imgproc.putText(
+                    rgb,
+                    "Marker size(px): $markerLengthPx",
+                    org.opencv.core.Point(
+                        cornerMatOfPoint2f[2, 0][0],
+                        cornerMatOfPoint2f[2, 0][1]
                     ),
                     org.opencv.imgproc.Imgproc.FONT_HERSHEY_SIMPLEX,
                     1.0,
