@@ -1,0 +1,5 @@
+9x
+5y
+square: 51.5mm
+marker: 43mm
+Dictionary: DICT_6X6_250
