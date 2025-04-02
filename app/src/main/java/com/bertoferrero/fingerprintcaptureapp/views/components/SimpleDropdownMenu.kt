@@ -25,7 +25,8 @@ fun <T> SimpleDropdownMenu(
     options: Array<String>,
     values: Array<T>,
     onOptionSelected: (T) -> Unit,
-    selectedValue: T? = null
+    selectedValue: T? = null,
+    modifier: Modifier = Modifier
 ) {
     val selectedIndex = remember { mutableIntStateOf(-1) }
     if (selectedIndex.intValue == -1 && selectedValue != null) {
@@ -37,7 +38,8 @@ fun <T> SimpleDropdownMenu(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { setExpanded(!expanded) }
+        onExpandedChange = { setExpanded(!expanded) },
+        modifier = modifier
     ) {
         TextField(
             value = options[selectedIndex.intValue],
@@ -47,10 +49,11 @@ fun <T> SimpleDropdownMenu(
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
-            modifier = Modifier.menuAnchor()
+            modifier = Modifier.menuAnchor().fillMaxWidth()
         )
         ExposedDropdownMenu(
             expanded = expanded,
+            modifier = modifier.fillMaxWidth(),
             onDismissRequest = { setExpanded(false) }
         ) {
             options.forEachIndexed  { optionIndex, option ->

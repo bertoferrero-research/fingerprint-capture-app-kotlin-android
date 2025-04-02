@@ -1,5 +1,5 @@
 [versions]
-agp = "8.8.2"
+agp = "8.9.1"
 kotlin = "2.1.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
@@ -14,6 +14,7 @@ androidx-camera = "1.4.1"
 moko-permissions = "0.19.0"
 androidx-lifecycle = "2.8.4"
 gson = "2.12.1"
+trilateration = "1.0.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -44,6 +45,7 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 moko-permissions-camera = { group = "dev.icerock.moko", name = "permissions-camera", version.ref = "moko-permissions" }
 moko-permissions-api = { group = "dev.icerock.moko", name = "permissions-compose", version.ref = "moko-permissions" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+trilateration = { group = "com.lemmingapex.trilateration", name = "trilateration", version.ref = "trilateration" }
 
 
 [plugins]

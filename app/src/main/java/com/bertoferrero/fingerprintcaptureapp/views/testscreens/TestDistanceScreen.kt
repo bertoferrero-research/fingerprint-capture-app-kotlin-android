@@ -1,4 +1,4 @@
-package com.bertoferrero.fingerprintcaptureapp.views
+package com.bertoferrero.fingerprintcaptureapp.views.testscreens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

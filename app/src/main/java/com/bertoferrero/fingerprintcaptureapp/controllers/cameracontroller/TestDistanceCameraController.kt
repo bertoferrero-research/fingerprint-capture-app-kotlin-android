@@ -20,7 +20,7 @@ class TestDistanceCameraController(
     private val context: Context,
     public var markerSize: Float = 0.173f,
     public var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
-    public var method: Int = 3,
+    public var method: Int = 1,
 ) : ICameraController {
     // Running variables
     private var running = false
