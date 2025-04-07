@@ -66,6 +66,8 @@ dependencies {
     implementation(libs.voyager.tabNavigator)
     implementation(libs.moko.permissions.camera)
     implementation(libs.moko.permissions.api)
+    implementation(libs.moko.permissions.bluetooth)
+    implementation(libs.moko.permissions.location)
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.bertoferrero.fingerprintcaptureapp.components.CameraPermissionsViewModel
+import com.bertoferrero.fingerprintcaptureapp.components.permissions.CameraPermissionsViewModel
 import com.bertoferrero.fingerprintcaptureapp.components.FixedFocusJavaCamera2View
 import dev.icerock.moko.permissions.PermissionState
 import dev.icerock.moko.permissions.PermissionsController

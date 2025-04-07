@@ -1,4 +1,4 @@
-package com.bertoferrero.fingerprintcaptureapp.components
+package com.bertoferrero.fingerprintcaptureapp.components.permissions
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,26 +11,29 @@ import dev.icerock.moko.permissions.Permission
 import dev.icerock.moko.permissions.PermissionState
 import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.RequestCanceledException
-import dev.icerock.moko.permissions.camera.CAMERA
 import kotlinx.coroutines.launch
 
-class CameraPermissionsViewModel(
-    private val controller: PermissionsController
+open class MainPermissionsViewModel(
+    protected val controller: PermissionsController
 ): ViewModel() {
 
     var state by mutableStateOf(PermissionState.NotDetermined)
-        private set
+        protected set
 
     init {
         viewModelScope.launch{
-            state = controller.getPermissionState(Permission.CAMERA)
+            state = controller.getPermissionState(getPermissionType())
         }
     }
 
-    fun provideOrRequestCameraPermission(){
+    protected open fun getPermissionType(): Permission{
+        throw Exception("This method must be override")
+    }
+
+    fun provideOrRequestPermission(){
         viewModelScope.launch {
             try {
-                controller.providePermission(Permission.CAMERA)
+                controller.providePermission(getPermissionType())
                 state = PermissionState.Granted
             } catch(e: DeniedAlwaysException){
                 state = PermissionState.DeniedAlways

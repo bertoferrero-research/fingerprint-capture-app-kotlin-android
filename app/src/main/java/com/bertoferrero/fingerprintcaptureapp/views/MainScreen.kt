@@ -20,6 +20,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestDistanceScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningRotationScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningTrilaterationScreen
+import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestRssiMonitorScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestTrilaterationLibraryScreen
 
 class MainScreen : Screen {
@@ -87,6 +88,14 @@ class MainScreen : Screen {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Rotation Position Test")
+                    }
+                    Button(
+                        onClick = {
+                            navigator.push(TestRssiMonitorScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Rssi Test Monitor")
                     }
                 }
 
