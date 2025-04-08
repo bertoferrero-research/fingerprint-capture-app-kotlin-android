@@ -14,7 +14,8 @@ import dev.icerock.moko.permissions.RequestCanceledException
 import kotlinx.coroutines.launch
 
 open class MainPermissionsViewModel(
-    protected val controller: PermissionsController
+    protected val controller: PermissionsController,
+    protected val permission: Permission
 ): ViewModel() {
 
     var state by mutableStateOf(PermissionState.NotDetermined)
@@ -22,18 +23,14 @@ open class MainPermissionsViewModel(
 
     init {
         viewModelScope.launch{
-            state = controller.getPermissionState(getPermissionType())
+            state = controller.getPermissionState(permission)
         }
-    }
-
-    protected open fun getPermissionType(): Permission{
-        throw Exception("This method must be override")
     }
 
     fun provideOrRequestPermission(){
         viewModelScope.launch {
             try {
-                controller.providePermission(getPermissionType())
+                controller.providePermission(permission)
                 state = PermissionState.Granted
             } catch(e: DeniedAlwaysException){
                 state = PermissionState.DeniedAlways
