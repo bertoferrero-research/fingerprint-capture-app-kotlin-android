@@ -1,6 +1,12 @@
 package com.bertoferrero.fingerprintcaptureapp.views.testscreens
 
 import android.R
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -18,6 +24,9 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.components.OpenCvCamera
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -76,6 +85,17 @@ class TestPositioningRotationScreen : Screen {
 
     @Composable
     fun RenderSettingsScreen() {
+
+        //https://medium.com/@cepv2010/how-to-easily-choose-files-in-android-compose-28f4637d1c21
+        //https://stackoverflow.com/questions/68768236/how-do-i-start-file-chooser-using-intent-in-compose
+         val markerSettingsFileChooser = rememberLauncherForActivityResult(
+            //GetCustomContents(isMultiple = false)
+             ActivityResultContracts.GetContent()
+        ) { fileUri ->
+                // Update the state with the Uri
+                Log.d("TestPositioningRotationScreen", "Selected file URI: $fileUri")
+        }
+
         Scaffold(
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
@@ -103,6 +123,13 @@ class TestPositioningRotationScreen : Screen {
                             viewParametersManager.arucoDictionaryType = it.value
                         }
                     )
+
+                    Button(
+                        onClick = {
+                            markerSettingsFileChooser.launch("application/json")
+                        }) {
+                        Text("Choose marker settings file")
+                    }
 
                     NumberField<Int>(
                         value = cameraController.marker1.id,
@@ -285,6 +312,53 @@ class TestPositioningRotationScreen : Screen {
                     }
                 }
             ).Render()
+        }
+    }
+}
+
+class GetCustomContents(
+    private val isMultiple: Boolean = false, //This input check if the select file option is multiple or not
+): ActivityResultContract<String, List<@JvmSuppressWildcards Uri>>() {
+
+    override fun createIntent(context: Context, input: String): Intent {
+        return Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = input //The input option es the MIME Type that you need to use
+            putExtra(Intent.EXTRA_LOCAL_ONLY, false) //Return data on the local device
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, isMultiple) //If select one or more files
+                .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    override fun parseResult(resultCode: Int, intent: Intent?): List<Uri> {
+        return intent.takeIf {
+            resultCode == Activity.RESULT_OK
+        }?.getClipDataUris() ?: emptyList()
+    }
+
+    internal companion object {
+
+        //Collect all Uris from files selected
+        internal fun Intent.getClipDataUris(): List<Uri> {
+            // Use a LinkedHashSet to maintain any ordering that may be
+            // present in the ClipData
+            val resultSet = LinkedHashSet<Uri>()
+            data?.let { data ->
+                resultSet.add(data)
+            }
+            val clipData = clipData
+            if (clipData == null && resultSet.isEmpty()) {
+                return emptyList()
+            } else if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    val uri = clipData.getItemAt(i).uri
+                    if (uri != null) {
+                        resultSet.add(uri)
+                    }
+                }
+            }
+            return ArrayList(resultSet)
         }
     }
 }
