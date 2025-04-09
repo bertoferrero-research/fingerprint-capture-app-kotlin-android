@@ -2,7 +2,7 @@
 package com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller
 
 import android.content.Context
-import com.bertoferrero.fingerprintcaptureapp.lib.openCvTools.MarkersDetectorNoCalibration
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetectorNoCalibration
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import com.lemmingapex.trilateration.NonLinearLeastSquaresSolver
 import com.lemmingapex.trilateration.TrilaterationFunction

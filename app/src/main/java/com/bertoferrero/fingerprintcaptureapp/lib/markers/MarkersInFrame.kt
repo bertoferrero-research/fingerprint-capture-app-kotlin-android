@@ -1,4 +1,4 @@
-package com.bertoferrero.fingerprintcaptureapp.lib.openCvTools
+package com.bertoferrero.fingerprintcaptureapp.lib.markers
 
 import org.opencv.core.Mat
 import org.opencv.core.MatOfPoint2f

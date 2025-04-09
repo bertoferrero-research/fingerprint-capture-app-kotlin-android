@@ -20,10 +20,16 @@ class BleScanner(
      * Context to use for scanning
      */
     private val context: Context,
+
+    /**
+     * List of MAC addresses to filter
+     */
+    private val filterMacs: List<String> = emptyList(),
+
     /**
      * Function to call when a device is found
      */
-    private val onDeviceFound: (ScanResult) -> Unit
+    private val onDeviceFound: (ScanResult) -> Unit,
 ) {
 
     /**
@@ -83,12 +89,30 @@ class BleScanner(
         btScanner = null
     }
 
+    /**
+     * Callback when a device is found, used to filter the devices
+     */
+    fun onResultRecieved(result: ScanResult){
+        if (filterMacs.isNotEmpty()){
+            val deviceMac = result.device.address
+            if(filterMacs.contains(deviceMac)){
+                onDeviceFound(result)
+            }
+            else{
+                Log.d("BleScannerLibrary", "Device found: ${result.device.address}, but not in the filter list")
+            }
+        }
+        else{
+            onDeviceFound(result)
+        }
+    }
+
 
     private val bleScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             result?.let {
-                onDeviceFound(it)
+                onResultRecieved(it)
                 //Log.d("TestRssiMonitorScreen", "Device found: ${it.device.address}, RSSI: ${it.rssi}, TxPower: ${it.txPower}")
                 //Toast.makeText(context, "Dispositivo encontrado: ${it.device.address}", Toast.LENGTH_SHORT).show()
             }
@@ -97,7 +121,7 @@ class BleScanner(
         override fun onBatchScanResults(results: MutableList<ScanResult>?) {
             super.onBatchScanResults(results)
             results?.forEach {
-                onDeviceFound(it)
+                onResultRecieved(it)
                 //Log.d("TestRssiMonitorScreen", "Batch device found: ${it.device.address}")
             }
         }

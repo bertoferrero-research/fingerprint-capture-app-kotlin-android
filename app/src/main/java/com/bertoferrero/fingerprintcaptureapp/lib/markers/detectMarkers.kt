@@ -1,20 +1,21 @@
-package com.bertoferrero.fingerprintcaptureapp.lib.openCvTools
+package com.bertoferrero.fingerprintcaptureapp.lib.markers
 
 import org.opencv.android.CameraBridgeViewBase
+import org.opencv.calib3d.Calib3d
 import org.opencv.core.Mat
 import org.opencv.core.MatOfDouble
 import org.opencv.core.MatOfPoint2f
 import org.opencv.core.MatOfPoint3f
 import org.opencv.core.Point3
-import org.opencv.core.Size
+import org.opencv.objdetect.ArucoDetector
 import kotlin.math.pow
 import kotlin.math.sqrt
-import kotlin.math.tan
 
 
 /**
  * Detects markers in the input frame and returns the detected markers with their pose and distance.
  *
+ * @deprecated use MarkersDetector
  * @param inputFrame The input frame.
  * @param markerSize The size of the marker.
  * @param arucoDetector The ArucoDetector object.
@@ -27,7 +28,7 @@ import kotlin.math.tan
 fun detectMarkers(
     inputFrame: CameraBridgeViewBase.CvCameraViewFrame,
     markerSize: Float,
-    arucoDetector: org.opencv.objdetect.ArucoDetector,
+    arucoDetector: ArucoDetector,
     cameraMatrix: Mat,
     distCoeffs: Mat,
     outputCorners: MutableList<Mat>? = null,
@@ -82,7 +83,7 @@ fun detectMarkers(
 
 
                 // Estimate the pose
-                org.opencv.calib3d.Calib3d.solvePnP(
+                Calib3d.solvePnP(
                     objectPoints,
                     cornerMatOfPoint2f,
                     cameraMatrix,
@@ -90,7 +91,7 @@ fun detectMarkers(
                     rvecs,
                     tvecs,
                     false,
-                    org.opencv.calib3d.Calib3d.SOLVEPNP_ITERATIVE
+                    Calib3d.SOLVEPNP_ITERATIVE
                 )
 
                 // Calculate the distance

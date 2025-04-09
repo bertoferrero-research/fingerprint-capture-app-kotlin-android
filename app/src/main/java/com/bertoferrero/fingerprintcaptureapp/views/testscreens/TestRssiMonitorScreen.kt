@@ -1,6 +1,7 @@
 package com.bertoferrero.fingerprintcaptureapp.views.testscreens
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.screen.Screen
 import androidx.annotation.RequiresPermission
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.views.components.resolvePermission
@@ -38,17 +41,24 @@ import dev.icerock.moko.permissions.compose.BindEffect
 import dev.icerock.moko.permissions.compose.PermissionsControllerFactory
 import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import dev.icerock.moko.permissions.location.LOCATION
+import kotlin.collections.mutableListOf
+import androidx.compose.foundation.lazy.items
 
 class TestRssiMonitorScreen : Screen {
 
     private var bleScanner: BleScanner? = null
     private var setterRunningContent: (Boolean) -> Unit = {}
+    private var setterMacHistoryPrinter: (MutableList<String>) -> Unit = {}
+    private var macHistory = mutableListOf<String>()
 
+    @SuppressLint("MutableCollectionMutableState")
     @Composable
     override fun Content() {
         val context = LocalContext.current
+        var (macHistoryPrinter, setMacHistoryPrinter) = remember { mutableStateOf(mutableListOf<String>()) }
         val (runningContent, setRunningContent) = remember { mutableStateOf(false) }
         setterRunningContent = setRunningContent
+        setterMacHistoryPrinter = setMacHistoryPrinter
 
         if(BleScanner.checkPermissions()) {
             Scaffold(
@@ -58,9 +68,7 @@ class TestRssiMonitorScreen : Screen {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .padding(innerPadding)
                 ) {
 
 
@@ -71,11 +79,22 @@ class TestRssiMonitorScreen : Screen {
                             } else {
                                 stopBleScan(context)
                             }
-                        }) {
-                        if (!runningContent) {
-                            Text("Start test")
-                        } else {
-                            Text("Stop test")
+                        },
+                        modifier = Modifier.padding(16.dp)) {
+                        Text(if (!runningContent) "Start Scan" else "Stop Scan")
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f)
+                            .padding(16.dp)
+                    ) {
+                        item {
+                            Text("MAC History:", modifier = Modifier.padding(bottom = 8.dp))
+                        }
+                        items(macHistory) { mac ->
+                            Text(mac)
                         }
                     }
                 }
@@ -93,7 +112,13 @@ class TestRssiMonitorScreen : Screen {
                 "TestRssiMonitorScreen",
                 "Device found: ${it.device.address}, RSSI: ${it.rssi}, TxPower: ${it.txPower}"
             )
+            macHistory.add(it.device.address)
+            setterMacHistoryPrinter(macHistory)
         }
+        //Reset the log
+        macHistory = mutableListOf()
+        setterMacHistoryPrinter(macHistory)
+        //Start the scan
         bleScanner?.startScan()
         setterRunningContent(true)
     }
@@ -104,6 +129,9 @@ class TestRssiMonitorScreen : Screen {
         bleScanner = null
 
         setterRunningContent(false)
+
+        macHistory = mutableListOf()
+        setterMacHistoryPrinter(macHistory)
     }
 
 }

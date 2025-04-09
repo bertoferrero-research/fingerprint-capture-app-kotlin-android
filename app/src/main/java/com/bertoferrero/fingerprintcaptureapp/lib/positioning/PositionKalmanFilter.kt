@@ -1,4 +1,4 @@
-package com.bertoferrero.fingerprintcaptureapp.lib.openCvTools
+package com.bertoferrero.fingerprintcaptureapp.lib.positioning
 
 import org.opencv.core.Core
 import org.opencv.core.CvType
@@ -12,6 +12,8 @@ class PositionKalmanFilter(
 ) {
     private val kf: KalmanFilter
     private val measurement: Mat
+
+    private var lastUpdateTimestamp: Long? = null
 
     init {
         kf = KalmanFilter(6, 3, 0, CvType.CV_32F)
@@ -33,6 +35,17 @@ class PositionKalmanFilter(
         measurement = Mat(3, 1, CvType.CV_32F)
     }
 
+    /**
+     * Reset the timestamp updating system.
+     */
+    public fun resetLastUpdateTimestamp() {
+        lastUpdateTimestamp = null
+    }
+
+    /**
+     * Update the transition matrix based on the time delta.
+     * @param dt Time delta since last update
+     */
     private fun updateTransitionMatrix(dt: Float) {
         val A = Mat.zeros(6, 6, CvType.CV_32F)
 
@@ -52,6 +65,14 @@ class PositionKalmanFilter(
         kf._transitionMatrix = A
     }
 
+    /**
+     * Update the Kalman filter with new measurements.
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @param z Z coordinate
+     * @param dt Time delta since last update
+     * @return Filtered position as a FloatArray
+     */
     fun updateWithDelta(x: Float, y: Float, z: Float, dt: Float): FloatArray {
         updateTransitionMatrix(dt)
 
@@ -74,5 +95,21 @@ class PositionKalmanFilter(
         result[2] = state.get(2, 0)[0].toFloat() // z
 
         return result
+    }
+
+    /**
+     * Update the Kalman filter using internal timestamp control.
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @param z Z coordinate
+     * @return Filtered position as a FloatArray
+     */
+    fun updateWithTimestampControl(x: Float, y: Float, z: Float): FloatArray {
+        val now = System.nanoTime()
+        var dt = 1.0f
+        lastUpdateTimestamp?.let { dt = (now - it) / 1_000_000_000.0f }
+        lastUpdateTimestamp = now
+
+        return updateWithDelta(x, y, z, dt)
     }
 }

@@ -5,7 +5,7 @@ import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.widget.Toast
-import com.bertoferrero.fingerprintcaptureapp.lib.openCvTools.detectMarkers
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.detectMarkers
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
