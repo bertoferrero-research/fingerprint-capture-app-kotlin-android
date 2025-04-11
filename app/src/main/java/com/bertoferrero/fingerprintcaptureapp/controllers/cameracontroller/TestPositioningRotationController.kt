@@ -7,8 +7,6 @@ import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBeh
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionKalmanFilter
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
-import com.bertoferrero.fingerprintcaptureapp.models.MarkerPosition
-import com.bertoferrero.fingerprintcaptureapp.models.MarkerRotation
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 import org.opencv.imgproc.Imgproc
@@ -19,21 +17,14 @@ import kotlin.math.roundToInt
 class TestPositioningRotationController(
     public var markerSize: Float = 0.1765f,
     public var arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
-    public var marker1: MarkerDefinition = MarkerDefinition(
-        27, MarkerPosition(0f, 0.552f, 1.5f),
-        MarkerRotation(90f, 0f, 90f)
-    ),
-    public var marker2: MarkerDefinition = MarkerDefinition(
-        3,
-        MarkerPosition(0f, 1.103f, 1.5f),
-        MarkerRotation(90f, 0f, 90f)
-    ),
+    public var markersDefinition : List<MarkerDefinition> = listOf()
 ) : ICameraController {
     // Running variables
     private var running = false
     private var markersDetector: MarkersDetector? = null
     private var markersId: List<Int>? = null
-    private var kalmanFilter: PositionKalmanFilter? = null
+    public var kalmanFilter = PositionKalmanFilter()
+        private set
     private var lastFrameTime: Long? = null
 
     // Camera calibration parameters
@@ -64,9 +55,10 @@ class TestPositioningRotationController(
             running = true
             markersDetector =
                 MarkersDetector(markerSize, arucoDictionaryType, cameraMatrix, distCoeffs)
-            markersId = listOf<Int>(marker1.id, marker2.id)
-            positioner = GlobalPositioner(listOf(marker1, marker2))
-            kalmanFilter = PositionKalmanFilter()
+
+            markersId = markersDefinition.map{ it.id }
+            positioner = GlobalPositioner(markersDefinition)
+            kalmanFilter.initProcess()
             lastFrameTime = null
         }
     }
@@ -77,7 +69,6 @@ class TestPositioningRotationController(
             markersDetector = null
             markersId = null
             positioner = null
-            kalmanFilter = null
             lastFrameTime = null
         }
     }
@@ -108,7 +99,7 @@ class TestPositioningRotationController(
 
 
         //KALMAN FILTER
-        val posArrayFiltered = kalmanFilter!!.updateWithTimestampControl(
+        val posArrayFiltered = kalmanFilter.updateWithTimestampControl(
             posArray[0].toFloat(),
             posArray[1].toFloat(),
             posArray[2].toFloat()

@@ -7,15 +7,19 @@ import org.opencv.core.Scalar
 import org.opencv.video.KalmanFilter
 
 class PositionKalmanFilter(
-    private val CovQ: Double = 1e-4, // process noise covariance
-    private val CovR: Double = 1e-2 // measurement noise covariance
+    public var covQ: Double = 1e-4, // process noise covariance
+    public var covR: Double = 1e-2 // measurement noise covariance
 ) {
-    private val kf: KalmanFilter
-    private val measurement: Mat
+    private lateinit var kf: KalmanFilter
+    private lateinit var measurement: Mat
 
     private var lastUpdateTimestamp: Long? = null
 
     init {
+        initProcess()
+    }
+
+    fun initProcess() {
         kf = KalmanFilter(6, 3, 0, CvType.CV_32F)
 
         // Inicializamos con dt = 1.0, pero se actualiza dinámicamente en cada frame
@@ -25,14 +29,16 @@ class PositionKalmanFilter(
         kf._measurementMatrix = Mat.eye(3, 6, CvType.CV_32F) // 3x6
 
         // Covarianzas
-        Core.setIdentity(kf._processNoiseCov, Scalar(CovQ)) // Confianza en el modelo
-        Core.setIdentity(kf._measurementNoiseCov, Scalar(CovR)) // Confianza en la medición
+        Core.setIdentity(kf._processNoiseCov, Scalar(covQ)) // Confianza en el modelo
+        Core.setIdentity(kf._measurementNoiseCov, Scalar(covR)) // Confianza en la medición
         Core.setIdentity(kf._errorCovPost, Scalar(1.0)) // Error inicial
 
         // Estado inicial
         kf._statePost.setTo(Scalar(0.0))
 
         measurement = Mat(3, 1, CvType.CV_32F)
+
+        resetLastUpdateTimestamp()
     }
 
     /**

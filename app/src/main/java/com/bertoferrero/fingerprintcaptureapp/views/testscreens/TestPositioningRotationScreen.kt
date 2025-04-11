@@ -78,7 +78,13 @@ class TestPositioningRotationScreen : Screen {
             fileUri?.let {
                 context.contentResolver.openInputStream(fileUri)?.use { inputStream ->
                     val jsonString = inputStream.bufferedReader().use { it.readText() }
-                    Log.d("TestPositioningRotationScreen - markerSettings Loaded", jsonString)
+                    try {
+                        viewModel.loadMarkersFromJson(jsonString)
+                        Toast.makeText(context, "Markers loaded from JSON: ${viewModel.cameraController.markersDefinition.size} markers", Toast.LENGTH_SHORT).show()
+                    }catch (ex: Exception){
+                        Log.e("TestPositioningRotationScreen", "Error loading markers from JSON", ex)
+                        Toast.makeText(context, "Error loading markers from JSON", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -113,8 +119,17 @@ class TestPositioningRotationScreen : Screen {
                         Text("Choose marker settings file")
                     }
 
-                    // Aquí sigues con los campos de marker1, marker2 como antes
-                    // usando directamente cameraController.marker1.id, etc.
+                    NumberField<Double>(
+                        value = viewModel.cameraController.kalmanFilter.covQ,
+                        onValueChange = { viewModel.cameraController.kalmanFilter.covQ = it },
+                        label = { Text("Kalman filter - Covariance Q") }
+                    )
+
+                    NumberField<Double>(
+                        value = viewModel.cameraController.kalmanFilter.covR,
+                        onValueChange = { viewModel.cameraController.kalmanFilter.covR = it },
+                        label = { Text("Kalman filter - Covariance R") }
+                    )
 
                     Button(
                         onClick = viewModel::startTest
