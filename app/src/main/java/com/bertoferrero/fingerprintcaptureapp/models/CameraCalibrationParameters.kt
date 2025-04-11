@@ -1,40 +1,44 @@
 package com.bertoferrero.fingerprintcaptureapp.models
 
-import android.content.Context
 import android.content.SharedPreferences
 import com.bertoferrero.fingerprintcaptureapp.lib.MatSerialization
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Scalar
+import androidx.core.content.edit
 
+/**
+ * Class that manages the camera calibration parameters.
+ * It loads and saves the camera matrix and distortion coefficients.
+ * The parameters are saved in the shared preferences.
+ */
 class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
 
-    public fun saveParameters(context: Context){
-        saveMatrix(context, cameraMatrixParamKey, cameraMatrix)
-        saveMatrix(context, distCoeffsParamKey, distCoeffs)
+    public fun saveParameters() {
+        saveMatrix(cameraMatrixParamKey, cameraMatrix)
+        saveMatrix(distCoeffsParamKey, distCoeffs)
     }
 
-    private fun saveMatrix(context: Context, key: String, matrix: Mat) {
-        val sharedPreferences: SharedPreferences = context.getSharedPreferences("CalibrationData", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        /*val rows = matrix.rows()
-        val cols = matrix.cols()
-        val data = FloatArray(rows * cols)
-        matrix.get(0, 0, data)
-        editor.putInt("${key}_rows", rows)
-        editor.putInt("${key}_cols", cols)
-        editor.putString("${key}_data", data.joinToString(","))*/
-        editor.putString("${key}_data", MatSerialization.SerializeFromMat(matrix))
-        editor.apply()
+    private fun saveMatrix(key: String, matrix: Mat) {
+        val sharedPreferences: SharedPreferences = SharedPreferencesManager.getCameraCalibrationSharedPreferences()
+        sharedPreferences.edit() {
+            putString("${key}_data", MatSerialization.SerializeFromMat(matrix))
+        }
     }
 
     companion object{
         const val cameraMatrixParamKey = "cameraMatrix"
         const val distCoeffsParamKey = "distCoeffs"
 
-        fun loadParameters(context: Context, throwExceptionIfEmpty: Boolean = true): CameraCalibrationParameters {
-            var cameraMatrix = loadMatrix(context, cameraMatrixParamKey)
-            var distCoeffs = loadMatrix(context, distCoeffsParamKey)
+        /**
+         * Loads the camera calibration parameters from the shared preferences.
+         * If the parameters are not found, it throws an exception or returns an empty object.
+         * @param throwExceptionIfEmpty If true, it throws an exception if the parameters are not found.
+         * @return The camera calibration parameters.
+         */
+        fun loadParameters(throwExceptionIfEmpty: Boolean = true): CameraCalibrationParameters {
+            var cameraMatrix = loadMatrix(cameraMatrixParamKey)
+            var distCoeffs = loadMatrix(distCoeffsParamKey)
 
             if(cameraMatrix != null && distCoeffs != null){
                 return CameraCalibrationParameters(cameraMatrix, distCoeffs)
@@ -53,19 +57,14 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
             return CameraCalibrationParameters(cameraMatrix, distCoeffs)
         }
 
-        private fun loadMatrix(context: Context, key: String): Mat? {
-            val sharedPreferences: SharedPreferences = context.getSharedPreferences("CalibrationData", Context.MODE_PRIVATE)
-            //val rows = sharedPreferences.getInt("${key}_rows", -1)
-            //val cols = sharedPreferences.getInt("${key}_cols", -1)
+        private fun loadMatrix(key: String): Mat? {
+            val sharedPreferences: SharedPreferences = SharedPreferencesManager.getCameraCalibrationSharedPreferences()
+
             val dataString = sharedPreferences.getString("${key}_data", null)
-            if (/*rows == -1 || cols == -1 || */dataString == null) {
+            if (dataString == null) {
                 return null
             }
             return MatSerialization.DeserializeToMat(dataString)
-            /*val data = dataString.split(",").map { it.toFloat() }.toFloatArray()
-            val matrix = Mat(rows, cols, CvType.CV_32F)
-            matrix.put(0, 0, data)
-            return matrix*/
         }
     }
 }

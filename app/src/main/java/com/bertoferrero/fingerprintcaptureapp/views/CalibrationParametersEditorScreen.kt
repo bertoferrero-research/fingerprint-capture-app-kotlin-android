@@ -14,9 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.material3.Divider
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -47,7 +44,6 @@ class CalibrationParametersEditorScreen : Screen {
         val context = LocalContext.current
         val calibrationParameters = remember {
             CameraCalibrationParameters.loadParameters(
-                context,
                 throwExceptionIfEmpty = false
             )
         }
@@ -55,7 +51,7 @@ class CalibrationParametersEditorScreen : Screen {
         getCameraCharacteristics()
 
         BackHandler {
-            calibrationParameters.saveParameters(context)
+            calibrationParameters.saveParameters()
             navigator.pop()
         }
 

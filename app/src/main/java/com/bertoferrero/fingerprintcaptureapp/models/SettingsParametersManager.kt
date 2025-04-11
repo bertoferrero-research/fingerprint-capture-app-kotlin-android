@@ -1,14 +1,13 @@
 package com.bertoferrero.fingerprintcaptureapp.models
 
-import android.content.Context
+import androidx.core.content.edit
 
 /**
  * Manages the view parameters
  */
-class ViewParametersManager(private val context: Context) {
+class SettingsParametersManager() {
 
-    private val sharedPreferences =
-        context.getSharedPreferences("ViewParameters", Context.MODE_PRIVATE)
+    private val sharedPreferences = SharedPreferencesManager.getSettingsParametersSharedPreferences()
 
     // General
 
@@ -18,7 +17,7 @@ class ViewParametersManager(private val context: Context) {
             org.opencv.objdetect.Objdetect.DICT_6X6_250
         )
         set(value) {
-            sharedPreferences.edit().putInt("arucoDictionaryType", value).apply()
+            sharedPreferences.edit() { putInt("arucoDictionaryType", value) }
         }
 
     // Detecting
@@ -29,7 +28,7 @@ class ViewParametersManager(private val context: Context) {
             0.173f
         )
         set(value) {
-            sharedPreferences.edit().putFloat("markerSize", value).apply()
+            sharedPreferences.edit() { putFloat("markerSize", value) }
         }
 
 
@@ -41,7 +40,7 @@ class ViewParametersManager(private val context: Context) {
             15
         )
         set(value) {
-            sharedPreferences.edit().putInt("calibrationSamples", value).apply()
+            sharedPreferences.edit() { putInt("calibrationSamples", value) }
         }
 
     var charucoXSquares: Int
@@ -50,7 +49,7 @@ class ViewParametersManager(private val context: Context) {
             7
         )
         set(value) {
-            sharedPreferences.edit().putInt("charucoXSquares", value).apply()
+            sharedPreferences.edit() { putInt("charucoXSquares", value) }
         }
 
 
@@ -60,7 +59,7 @@ class ViewParametersManager(private val context: Context) {
             5
         )
         set(value) {
-            sharedPreferences.edit().putInt("charucoYSquares", value).apply()
+            sharedPreferences.edit() { putInt("charucoYSquares", value) }
         }
 
     var charucoSquareLength: Float
@@ -69,7 +68,7 @@ class ViewParametersManager(private val context: Context) {
             0.035f
         )
         set(value) {
-            sharedPreferences.edit().putFloat("charucoSquareLength", value).apply()
+            sharedPreferences.edit() { putFloat("charucoSquareLength", value) }
         }
 
     var charucoMarkerLength: Float
@@ -78,7 +77,7 @@ class ViewParametersManager(private val context: Context) {
             0.018f
         )
         set(value) {
-            sharedPreferences.edit().putFloat("charucoMarkerLength", value).apply()
+            sharedPreferences.edit() { putFloat("charucoMarkerLength", value) }
         }
 
 }

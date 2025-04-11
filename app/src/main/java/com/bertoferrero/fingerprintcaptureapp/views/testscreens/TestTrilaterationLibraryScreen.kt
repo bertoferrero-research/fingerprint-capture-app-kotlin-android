@@ -1,34 +1,21 @@
 package com.bertoferrero.fingerprintcaptureapp.views.testscreens
 
-import android.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
-import com.bertoferrero.fingerprintcaptureapp.views.components.OpenCvCamera
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.unit.dp
-import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestPositioningTrilaterationController
-import com.bertoferrero.fingerprintcaptureapp.models.ViewParametersManager
-import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
-import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMenu
 import com.lemmingapex.trilateration.NonLinearLeastSquaresSolver
@@ -36,8 +23,6 @@ import com.lemmingapex.trilateration.TrilaterationFunction
 import org.apache.commons.math3.fitting.leastsquares.LeastSquaresOptimizer
 import org.apache.commons.math3.fitting.leastsquares.LevenbergMarquardtOptimizer
 import org.apache.commons.math3.linear.RealVector
-import org.opencv.android.CameraBridgeViewBase
-import org.opencv.core.Mat
 
 class TestTrilaterationLibraryScreen : Screen {
 

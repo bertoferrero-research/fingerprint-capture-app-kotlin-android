@@ -21,7 +21,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.ui.unit.dp
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestDistanceCameraController
-import com.bertoferrero.fingerprintcaptureapp.models.ViewParametersManager
+import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
@@ -32,7 +32,7 @@ import org.opencv.core.Mat
 class TestDistanceScreen : Screen {
 
     private lateinit var cameraController: TestDistanceCameraController
-    private lateinit var viewParametersManager: ViewParametersManager
+    private lateinit var settingsParametersManager: SettingsParametersManager
     private var setterRunningContent: (Boolean) -> Unit = {}
 
     @Composable
@@ -42,11 +42,11 @@ class TestDistanceScreen : Screen {
         setterRunningContent = setRunningContent
 
         val context = LocalContext.current
-        viewParametersManager = remember { ViewParametersManager(context) }
+        settingsParametersManager = remember { SettingsParametersManager() }
         cameraController = remember { TestDistanceCameraController(
             context,
-            viewParametersManager.markerSize,
-            viewParametersManager.arucoDictionaryType
+            settingsParametersManager.markerSize,
+            settingsParametersManager.arucoDictionaryType
         ) }
 
         BackHandler {
@@ -82,7 +82,7 @@ class TestDistanceScreen : Screen {
                     value = cameraController.markerSize,
                     onValueChange = {
                         cameraController.markerSize = it
-                        viewParametersManager.markerSize = it
+                        settingsParametersManager.markerSize = it
                                     },
                     label = { Text("Marker size (m)") }
                 )
@@ -101,7 +101,7 @@ class TestDistanceScreen : Screen {
                     selectedArucoType = ArucoDictionaryType.fromInt(cameraController.arucoDictionaryType)!!,
                     onArucoTypeSelected = {
                         cameraController.arucoDictionaryType = it.value
-                        viewParametersManager.arucoDictionaryType = it.value
+                        settingsParametersManager.arucoDictionaryType = it.value
                     }
                 )
 

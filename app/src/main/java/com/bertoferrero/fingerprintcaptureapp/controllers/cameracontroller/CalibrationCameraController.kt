@@ -131,9 +131,9 @@ class CalibrationCameraController(
                         tvecs
                     )
                     val calibrationObject = CameraCalibrationParameters(cameraMatrix, distCoeffs)
-                    calibrationObject.saveParameters(context)
+                    calibrationObject.saveParameters()
 
-                    var calibrationCheck = CameraCalibrationParameters.loadParameters(context)
+                    var calibrationCheck = CameraCalibrationParameters.loadParameters()
 
                     Toast.makeText(context, "Camera calibrated, error: ${overallRmsError}", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {

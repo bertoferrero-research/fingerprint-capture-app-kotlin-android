@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.FadeTransition
+import com.bertoferrero.fingerprintcaptureapp.models.SharedPreferencesManager
 import com.bertoferrero.fingerprintcaptureapp.ui.theme.FingerPrintCaptureAppAndroidTheme
 import com.bertoferrero.fingerprintcaptureapp.views.MainScreen
 import org.opencv.android.OpenCVLoader
@@ -20,6 +21,7 @@ import org.opencv.android.OpenCVLoader
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SharedPreferencesManager.init(this)
         enableEdgeToEdge()
         OpenCVLoader.initLocal()
         setContent {

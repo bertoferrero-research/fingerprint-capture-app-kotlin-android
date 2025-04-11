@@ -1,9 +1,6 @@
 // CalibrationManager.kt
 package com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller
 
-import android.content.Context
-import android.widget.Toast
-import com.bertoferrero.fingerprintcaptureapp.lib.eulerAnglesToRotationMatrix
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.GlobalPositioner
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
@@ -13,9 +10,6 @@ import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerPosition
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerRotation
 import org.opencv.android.CameraBridgeViewBase
-import org.opencv.calib3d.Calib3d
-import org.opencv.core.Core
-import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.imgproc.Imgproc
 import org.opencv.objdetect.Objdetect
@@ -23,7 +17,6 @@ import kotlin.math.roundToInt
 
 
 class TestPositioningRotationController(
-    private val context: Context,
     public var markerSize: Float = 0.1765f,
     public var arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
     public var marker1: MarkerDefinition = MarkerDefinition(
@@ -46,6 +39,9 @@ class TestPositioningRotationController(
     // Camera calibration parameters
     private var cameraMatrix: Mat
     private var distCoeffs: Mat
+    private var calibrationParametersLoaded: Boolean = false
+    val isCalibrationParametersLoaded: Boolean
+        get() = calibrationParametersLoaded
 
     // Positioner
     private var positioner: GlobalPositioner? = null
@@ -53,12 +49,11 @@ class TestPositioningRotationController(
     init {
         //Load camera correction parameters
         try {
-            val calibrationParameters = CameraCalibrationParameters.loadParameters(context)
+            val calibrationParameters = CameraCalibrationParameters.loadParameters()
             cameraMatrix = calibrationParameters.cameraMatrix
             distCoeffs = calibrationParameters.distCoeffs
+            calibrationParametersLoaded = true
         } catch (e: Exception) {
-            Toast.makeText(context, "No camera calibration parameters found", Toast.LENGTH_SHORT)
-                .show()
             cameraMatrix = Mat()
             distCoeffs = Mat()
         }

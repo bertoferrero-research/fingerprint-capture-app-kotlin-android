@@ -39,7 +39,7 @@ class TestDistanceCameraController(
     init {
         //Load camera correction parameters
         try {
-            val calibrationParameters = CameraCalibrationParameters.loadParameters(context)
+            val calibrationParameters = CameraCalibrationParameters.loadParameters()
             cameraMatrix = calibrationParameters.cameraMatrix
             distCoeffs = calibrationParameters.distCoeffs
         } catch (e: Exception) {

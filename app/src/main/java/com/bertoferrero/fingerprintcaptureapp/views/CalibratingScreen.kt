@@ -21,7 +21,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.components.OpenCvCamera
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.CalibrationCameraController
 import androidx.activity.compose.BackHandler
-import com.bertoferrero.fingerprintcaptureapp.models.ViewParametersManager
+import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
@@ -31,7 +31,7 @@ import org.opencv.core.Mat
 class CalibratingScreen : Screen {
 
     private lateinit var calibrationCameraController: CalibrationCameraController
-    private lateinit var viewParametersManager: ViewParametersManager
+    private lateinit var settingsParametersManager: SettingsParametersManager
     private var screenSetterCalibrating: (Boolean) -> Unit = {}
 
     @Composable
@@ -41,19 +41,19 @@ class CalibratingScreen : Screen {
         screenSetterCalibrating = setCalibratingContent
 
         val context = LocalContext.current
-        viewParametersManager = remember { ViewParametersManager(context) }
+        settingsParametersManager = remember { SettingsParametersManager() }
         calibrationCameraController = remember {
             CalibrationCameraController(
                 context,
                 onCalibrationFinished = {
                     setCalibratingContent(false)
                 },
-                viewParametersManager.calibrationSamples,
-                viewParametersManager.arucoDictionaryType,
-                viewParametersManager.charucoXSquares,
-                viewParametersManager.charucoYSquares,
-                viewParametersManager.charucoSquareLength,
-                viewParametersManager.charucoMarkerLength
+                settingsParametersManager.calibrationSamples,
+                settingsParametersManager.arucoDictionaryType,
+                settingsParametersManager.charucoXSquares,
+                settingsParametersManager.charucoYSquares,
+                settingsParametersManager.charucoSquareLength,
+                settingsParametersManager.charucoMarkerLength
             )
         }
 
@@ -91,7 +91,7 @@ class CalibratingScreen : Screen {
                     value = calibrationCameraController.minSamplesAmount,
                     onValueChange = {
                         calibrationCameraController.minSamplesAmount = it
-                        viewParametersManager.calibrationSamples = it
+                        settingsParametersManager.calibrationSamples = it
                     },
                     label = { Text("Samples to take") }
                 )
@@ -99,7 +99,7 @@ class CalibratingScreen : Screen {
                     value = calibrationCameraController.charucoXSquares,
                     onValueChange = {
                         calibrationCameraController.charucoXSquares = it
-                        viewParametersManager.charucoXSquares = it
+                        settingsParametersManager.charucoXSquares = it
                     },
                     label = { Text("Charuco vertical squares") }
                 )
@@ -107,7 +107,7 @@ class CalibratingScreen : Screen {
                     value = calibrationCameraController.charucoYSquares,
                     onValueChange = {
                         calibrationCameraController.charucoYSquares = it
-                        viewParametersManager.charucoYSquares = it
+                        settingsParametersManager.charucoYSquares = it
                     },
                     label = { Text("Charuco horizontal squares") }
                 )
@@ -115,7 +115,7 @@ class CalibratingScreen : Screen {
                     value = calibrationCameraController.charucoSquareLength,
                     onValueChange = {
                         calibrationCameraController.charucoSquareLength = it
-                        viewParametersManager.charucoSquareLength = it
+                        settingsParametersManager.charucoSquareLength = it
                     },
                     label = { Text("Charuco square length (m)") }
                 )
@@ -123,7 +123,7 @@ class CalibratingScreen : Screen {
                     value = calibrationCameraController.charucoMarkerLength,
                     onValueChange = {
                         calibrationCameraController.charucoMarkerLength = it
-                        viewParametersManager.charucoMarkerLength = it
+                        settingsParametersManager.charucoMarkerLength = it
                     },
                     label = { Text("Charuco marker length (m)") }
                 )
@@ -132,7 +132,7 @@ class CalibratingScreen : Screen {
                     selectedArucoType = ArucoDictionaryType.fromInt(calibrationCameraController.arucoDictionaryType)!!,
                     onArucoTypeSelected = {
                         calibrationCameraController.arucoDictionaryType = it.value
-                        viewParametersManager.arucoDictionaryType = it.value
+                        settingsParametersManager.arucoDictionaryType = it.value
                     }
                 )
 
