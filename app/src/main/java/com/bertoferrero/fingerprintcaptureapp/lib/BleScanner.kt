@@ -92,7 +92,7 @@ class BleScanner(
     /**
      * Callback when a device is found, used to filter the devices
      */
-    fun onResultRecieved(result: ScanResult){
+    fun onResultReceived(result: ScanResult){
         if (filterMacs.isNotEmpty()){
             val deviceMac = result.device.address
             if(filterMacs.contains(deviceMac)){
@@ -112,7 +112,7 @@ class BleScanner(
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             result?.let {
-                onResultRecieved(it)
+                onResultReceived(it)
                 //Log.d("TestRssiMonitorScreen", "Device found: ${it.device.address}, RSSI: ${it.rssi}, TxPower: ${it.txPower}")
                 //Toast.makeText(context, "Dispositivo encontrado: ${it.device.address}", Toast.LENGTH_SHORT).show()
             }
@@ -121,7 +121,7 @@ class BleScanner(
         override fun onBatchScanResults(results: MutableList<ScanResult>?) {
             super.onBatchScanResults(results)
             results?.forEach {
-                onResultRecieved(it)
+                onResultReceived(it)
                 //Log.d("TestRssiMonitorScreen", "Batch device found: ${it.device.address}")
             }
         }

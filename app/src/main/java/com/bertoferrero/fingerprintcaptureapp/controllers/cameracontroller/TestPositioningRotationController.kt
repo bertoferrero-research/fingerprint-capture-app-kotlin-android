@@ -11,13 +11,18 @@ import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 import org.opencv.imgproc.Imgproc
 import org.opencv.objdetect.Objdetect
+import kotlin.Double
+import kotlin.Int
 import kotlin.math.roundToInt
 
 
 class TestPositioningRotationController(
     public var markerSize: Float = 0.1765f,
     public var arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
-    public var markersDefinition : List<MarkerDefinition> = listOf()
+    public var markersDefinition: List<MarkerDefinition> = listOf(),
+    public var samplesLimit: Int = 0,
+    public var multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.CLOSEST,
+    private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit
 ) : ICameraController {
     // Running variables
     private var running = false
@@ -25,7 +30,8 @@ class TestPositioningRotationController(
     private var markersId: List<Int>? = null
     public var kalmanFilter = PositionKalmanFilter()
         private set
-    private var lastFrameTime: Long? = null
+    public var samples: MutableList<TestPositioningRotationSample> = mutableListOf()
+        private set
 
     // Camera calibration parameters
     private var cameraMatrix: Mat
@@ -55,11 +61,11 @@ class TestPositioningRotationController(
             running = true
             markersDetector =
                 MarkersDetector(markerSize, arucoDictionaryType, cameraMatrix, distCoeffs)
-
-            markersId = markersDefinition.map{ it.id }
+            markersId = markersDefinition.map { it.id }
             positioner = GlobalPositioner(markersDefinition)
+            samples = mutableListOf()
             kalmanFilter.initProcess()
-            lastFrameTime = null
+
         }
     }
 
@@ -69,15 +75,19 @@ class TestPositioningRotationController(
             markersDetector = null
             markersId = null
             positioner = null
-            lastFrameTime = null
         }
     }
 
     override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
 
+        //Check if we have to skip this frame
         if (!running || inputFrame == null) {
             return inputFrame?.rgba() ?: Mat()
         }
+        if (samplesLimit > 0 && samples.size >= samplesLimit) {
+            return inputFrame.rgba()
+        }
+
 
         // Detect markers
         val corners: MutableList<Mat> = mutableListOf()
@@ -87,14 +97,14 @@ class TestPositioningRotationController(
         )
 
         // Prepare the output frame
-        val frame = inputFrame.rgba() ?: Mat()
+        val frame = inputFrame.rgba()
         val rgb = Mat()
         Imgproc.cvtColor(frame, rgb, Imgproc.COLOR_RGBA2RGB)
 
         // Calculate the camera position
         val posArray = positioner?.getPositionFromArucoMarkers(
             detectedMarkers,
-            MultipleMarkersBehaviour.WEIGHTED_AVERAGE
+            multipleMarkersBehaviour
         ) ?: return rgb
 
 
@@ -104,6 +114,25 @@ class TestPositioningRotationController(
             posArray[1].toFloat(),
             posArray[2].toFloat()
         )
+
+        //Append the sample
+        samples.add(
+            TestPositioningRotationSample(
+                multipleMarkersBehaviour = multipleMarkersBehaviour,
+                amountMarkersEmployed = detectedMarkers.size,
+                kalmanQ = kalmanFilter.covQ,
+                kalmanR = kalmanFilter.covR,
+                rawX = posArray[0].toFloat(),
+                rawY = posArray[1].toFloat(),
+                rawZ = posArray[2].toFloat(),
+                kalmanX = posArrayFiltered[0],
+                kalmanY = posArrayFiltered[1],
+                kalmanZ = posArrayFiltered[2]
+            )
+        )
+        if(samplesLimit > 0 && samples.size >= samplesLimit) {
+            onSamplesLimitReached(samples)
+        }
 
         //Print the position
         println("Position: (${posArray[0]}, ${posArray[1]}, ${posArray[2]})")
@@ -136,6 +165,18 @@ class TestPositioningRotationController(
 
         return rgb
     }
-
-
 }
+
+class TestPositioningRotationSample(
+    val timestamp: Long = System.currentTimeMillis(),
+    val multipleMarkersBehaviour: MultipleMarkersBehaviour,
+    val amountMarkersEmployed: Int,
+    val kalmanQ: Double,
+    val kalmanR: Double,
+    val rawX: Float,
+    val rawY: Float,
+    val rawZ: Float,
+    val kalmanX: Float,
+    val kalmanY: Float,
+    val kalmanZ: Float,
+)

@@ -73,4 +73,5 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.gson)
     implementation(libs.trilateration)
+    implementation(libs.documentfile)
 }
