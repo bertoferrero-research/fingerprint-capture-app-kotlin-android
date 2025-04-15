@@ -46,6 +46,14 @@ class TestPositioningRotationScreen : Screen {
         val pendingSave = viewModel.pendingSamplesSave
 
         LaunchedEffect(pendingSave) {
+            if (!viewModel.cameraController.isCalibrationParametersLoaded) {
+                Toast.makeText(
+                    context,
+                    "No camera calibration parameters found",
+                    Toast.LENGTH_SHORT
+                )
+                    .show()
+            }
             if (pendingSave) {
                 viewModel.saveSampleFile(context)
                 Toast.makeText(context, "Sample saved", Toast.LENGTH_SHORT).show()
@@ -58,11 +66,6 @@ class TestPositioningRotationScreen : Screen {
             } else {
                 navigator.pop()
             }
-        }
-
-        if (!viewModel.cameraController.isCalibrationParametersLoaded) {
-            Toast.makeText(context, "No camera calibration parameters found", Toast.LENGTH_SHORT)
-                .show()
         }
 
         if (!isRunning) {
@@ -118,7 +121,7 @@ class TestPositioningRotationScreen : Screen {
                 )
 
                 // Guardar el Uri en ViewModel o DataStore para más adelante
-                viewModel.outputFolderUri = it
+                viewModel.updateOutputFolderUri(it)
             }
         }
 
@@ -154,11 +157,17 @@ class TestPositioningRotationScreen : Screen {
                     SimpleDropdownMenu(
                         label = "When multiple markers",
                         values = MultipleMarkersBehaviour.entries.toTypedArray(),
-                        options = arrayOf("Closest", "Weighted average"),
+                        options = arrayOf("Closest", "Weighted average", "Average"),
                         onOptionSelected = {
                             viewModel.cameraController.multipleMarkersBehaviour = it
                         },
                         selectedValue = viewModel.cameraController.multipleMarkersBehaviour
+                    )
+
+                    NumberField<Int>(
+                        value = cameraController.closestMarkersUsed,
+                        onValueChange = { cameraController.closestMarkersUsed = it },
+                        label = { Text("C - Number of closest markers used") }
                     )
 
                     NumberField<Double>(
@@ -185,7 +194,8 @@ class TestPositioningRotationScreen : Screen {
                     }
 
                     Button(
-                        onClick = viewModel::startTest
+                        onClick = viewModel::startTest,
+                        enabled = (viewModel.initButtonEnabled)
                     ) {
                         Text("Start test")
                     }

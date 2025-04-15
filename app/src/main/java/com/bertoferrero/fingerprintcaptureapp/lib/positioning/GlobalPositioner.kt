@@ -26,28 +26,32 @@ class GlobalPositioner(
      */
     public fun getPositionFromArucoMarkers(
         detectedMarkers: List<MarkersInFrame>,
-        multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.CLOSEST,
-    ): List<Double>? {
+        multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.WEIGHTED_AVERAGE,
+        closestMarkersUsed: Int = 0,
+
+        ): Pair<Int, List<Double>>? {
 
         var detectedMarkers = detectedMarkers
 
         // Get the closest marker to the camera if it is required
-        if(multipleMarkersBehaviour == MultipleMarkersBehaviour.CLOSEST){// Remove markers not in the config
+        if (multipleMarkersBehaviour == MultipleMarkersBehaviour.CLOSEST) {// Remove markers not in the config
             detectedMarkers = detectedMarkers.filter {
-                markersConfig.any {
-                        marker -> marker.id == it.markerId
+                markersConfig.any { marker ->
+                    marker.id == it.markerId
                 }
             }
             val closestMarker = detectedMarkers.minByOrNull { it.distance } ?: return null
             detectedMarkers = listOf(closestMarker)
+        } else if (closestMarkersUsed > 0) {
+            detectedMarkers = detectedMarkers.sortedBy { it.distance }.take(closestMarkersUsed)
         }
 
         // CALCULATE THE CAMERA POSITIONS
         val extractedPositions: MutableList<List<Double>> = mutableListOf()
         for (detectedMarker in detectedMarkers) {
             //Detect the selected marker data
-            var markerData = markersConfig.find{
-                marker -> marker.id == detectedMarker.markerId
+            var markerData = markersConfig.find { marker ->
+                marker.id == detectedMarker.markerId
             }
 
             if (markerData != null) {
@@ -102,33 +106,50 @@ class GlobalPositioner(
             }
         }
 
+
+        //Prepare return data
+        var returnData: List<Double>? = null
+
         // Calculate weighted average of the positions
-        if(multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_AVERAGE) {
-                return getWeightedPosition(extractedPositions)
+        if (multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_AVERAGE || multipleMarkersBehaviour == MultipleMarkersBehaviour.AVERAGE) {
+            returnData = getAveragePosition(
+                extractedPositions,
+                multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_AVERAGE
+            )
+        }
+        else {
+            // Return the closest position
+            returnData = extractedPositions.firstOrNull()
         }
 
-        // Return the closest position
-        return extractedPositions.firstOrNull()
+        if (returnData == null) {
+            return null
+        }
+        return Pair(detectedMarkers.size, returnData)
     }
 
     /**
-     * Calculate the weighted average of the positions based on their distances.
+     * Calculate the average (arithmetic or weighted) of the positions based on their distances.
      * @param positions List of positions, each position is a list of [x, y, z, distance]
-     * @return Weighted average position as a list of [x, y, z] or null if no valid positions are provided.
+     * @param weightedAverage Indicates whether the average must be calculated weighted or arithmetic
+     * @return Average position as a list of [x, y, z] or null if no valid positions are provided.
      */
-    private fun getWeightedPosition(positions: List<List<Double>>):List<Double>?{
+    private fun getAveragePosition(
+        positions: List<List<Double>>,
+        weightedAverage: Boolean = true,
+    ): List<Double>? {
 
-        if(positions.isEmpty()) return null
+        if (positions.isEmpty()) return null
 
         var x = 0.0
         var y = 0.0
         var z = 0.0
-        var totalWeight  = 0.0
+        var totalWeight = 0.0
 
         for (position in positions) {
             // position[0] = x, [1] = y, [2] = z, [3] = distancia
 
-            val distance = position.getOrNull(3) ?: continue
+            val distance = if (weightedAverage) position.getOrNull(3) ?: continue else 1.0
 
             if (distance <= 0.0) continue // evita división por 0 o distancias inválidas
 
@@ -155,4 +176,5 @@ class GlobalPositioner(
 enum class MultipleMarkersBehaviour {
     CLOSEST,
     WEIGHTED_AVERAGE,
+    AVERAGE
 }

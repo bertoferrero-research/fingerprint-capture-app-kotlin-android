@@ -22,6 +22,7 @@ class TestPositioningRotationController(
     public var markersDefinition: List<MarkerDefinition> = listOf(),
     public var samplesLimit: Int = 0,
     public var multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.CLOSEST,
+    public var closestMarkersUsed: Int = 0,
     private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit
 ) : ICameraController {
     // Running variables
@@ -102,7 +103,7 @@ class TestPositioningRotationController(
         Imgproc.cvtColor(frame, rgb, Imgproc.COLOR_RGBA2RGB)
 
         // Calculate the camera position
-        val posArray = positioner?.getPositionFromArucoMarkers(
+        val (amountMarkersEmployed, posArray) = positioner?.getPositionFromArucoMarkers(
             detectedMarkers,
             multipleMarkersBehaviour
         ) ?: return rgb
@@ -119,7 +120,7 @@ class TestPositioningRotationController(
         samples.add(
             TestPositioningRotationSample(
                 multipleMarkersBehaviour = multipleMarkersBehaviour,
-                amountMarkersEmployed = detectedMarkers.size,
+                amountMarkersEmployed = amountMarkersEmployed,
                 kalmanQ = kalmanFilter.covQ,
                 kalmanR = kalmanFilter.covR,
                 rawX = posArray[0].toFloat(),

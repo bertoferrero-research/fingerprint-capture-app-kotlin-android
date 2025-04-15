@@ -24,8 +24,12 @@ class TestPositioningRotationViewModel : ViewModel() {
     )
 
     var outputFolderUri: Uri? = null
+        private set
 
     var isRunning by mutableStateOf(false)
+        private set
+
+    var initButtonEnabled by mutableStateOf(false)
         private set
 
     var pendingSamplesSave by mutableStateOf(false)
@@ -54,11 +58,23 @@ class TestPositioningRotationViewModel : ViewModel() {
         cameraController.arucoDictionaryType = type
     }
 
+    fun updateOutputFolderUri(uri: Uri){
+        outputFolderUri = uri
+        evaluateEnableButtonTest()
+    }
+
+    fun evaluateEnableButtonTest(){
+        initButtonEnabled = cameraController.markersDefinition.isNotEmpty() && outputFolderUri !== null;
+    }
+
     fun loadMarkersFromJson(jsonString: String) {
         val type = object : TypeToken<List<MarkerDefinition>>() {}.type
         var loadedMarkers: List<MarkerDefinition> = Gson().fromJson(jsonString, type)
         cameraController.markersDefinition = loadedMarkers
+        evaluateEnableButtonTest()
     }
+
+    //Sample files block
 
     fun saveSampleFile(context: Context){
         pendingSamplesSave = false
@@ -94,7 +110,7 @@ class TestPositioningRotationViewModel : ViewModel() {
         //Save the file
         val folder = DocumentFile.fromTreeUri(context, outputFolderUri!!)
         val timestamp = System.currentTimeMillis()
-        val fileName = "samples_$timestamp.csv"
+        val fileName = "test_position_sample_$timestamp.csv"
 
         val newFile = folder?.createFile("text/csv", fileName)
         newFile?.uri?.let { fileUri ->

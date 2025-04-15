@@ -49,7 +49,7 @@ fun <T> SimpleDropdownMenu(
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
-            modifier = Modifier.menuAnchor().fillMaxWidth()
+            modifier = Modifier.menuAnchor()
         )
         ExposedDropdownMenu(
             expanded = expanded,

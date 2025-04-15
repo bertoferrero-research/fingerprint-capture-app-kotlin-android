@@ -13,7 +13,8 @@ fun <T : Number>NumberField(
     value: T,
     onValueChange: (T) -> Unit,
     modifier: Modifier = Modifier,
-    label: @Composable() (() -> Unit)? = null
+    label: @Composable() (() -> Unit)? = null,
+    enabled: Boolean = true
 ) {
 
     val text = remember { mutableStateOf(value.toString())}
@@ -41,7 +42,8 @@ fun <T : Number>NumberField(
         keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
         onValueChange = change,
         label = label,
-        modifier = modifier
+        modifier = modifier,
+        enabled = enabled
     )
 
 }
