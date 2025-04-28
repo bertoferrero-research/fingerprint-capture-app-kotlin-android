@@ -105,7 +105,8 @@ class TestPositioningRotationController(
         // Calculate the camera position
         val (amountMarkersEmployed, posArray) = positioner?.getPositionFromArucoMarkers(
             detectedMarkers,
-            multipleMarkersBehaviour
+            multipleMarkersBehaviour,
+            closestMarkersUsed
         ) ?: return rgb
 
 
