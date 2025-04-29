@@ -96,6 +96,9 @@ class TestPositioningRotationController(
         val detectedMarkers = markersDetector!!.detectMarkers(
             inputFrame, markersId!!, corners, ids
         )
+        if(detectedMarkers.isEmpty()){
+            return inputFrame.rgba()
+        }
 
         // Prepare the output frame
         val frame = inputFrame.rgba()
@@ -133,6 +136,12 @@ class TestPositioningRotationController(
             )
         )
         if(samplesLimit > 0 && samples.size >= samplesLimit) {
+            //Remove the rows that not accomplish with the minimal markers amount required
+            if(closestMarkersUsed > 0) {
+                samples = samples.filter {
+                    it.amountMarkersEmployed == closestMarkersUsed
+                } as MutableList<TestPositioningRotationSample>
+            }
             onSamplesLimitReached(samples)
         }
 
