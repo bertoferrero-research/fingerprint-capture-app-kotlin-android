@@ -2,11 +2,13 @@
 package com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller
 
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.GlobalPositioner
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionKalmanFilter
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
+import kotlinx.coroutines.yield
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 import org.opencv.imgproc.Imgproc
@@ -23,7 +25,8 @@ class TestPositioningRotationController(
     public var samplesLimit: Int = 0,
     public var multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.CLOSEST,
     public var closestMarkersUsed: Int = 0,
-    private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit
+    public var testingImage: String? = null,
+    private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit,
 ) : ICameraController {
     // Running variables
     private var running = false
@@ -66,7 +69,6 @@ class TestPositioningRotationController(
             positioner = GlobalPositioner(markersDefinition)
             samples = mutableListOf()
             kalmanFilter.initProcess()
-
         }
     }
 
@@ -76,6 +78,25 @@ class TestPositioningRotationController(
             markersDetector = null
             markersId = null
             positioner = null
+        }
+    }
+
+    suspend fun startImageSimulation() {
+        //Check if the image has been defined
+        if (testingImage == null) {
+            throw Exception("Testing image is not defined")
+        }
+
+        //Try loading it
+        val frame = CvCameraViewFrameMockFromImage(testingImage!!)
+        if (frame.rgba() == null) {
+            throw Exception("Selected image cannot be loaded")
+        }
+
+        //Start the testing loop
+        while (running) {
+            processFrame(frame)
+            yield() // Cede el control para evitar bloquear el hilo
         }
     }
 
@@ -96,7 +117,7 @@ class TestPositioningRotationController(
         val detectedMarkers = markersDetector!!.detectMarkers(
             inputFrame, markersId!!, corners, ids
         )
-        if(detectedMarkers.isEmpty()){
+        if (detectedMarkers.isEmpty()) {
             return inputFrame.rgba()
         }
 
@@ -135,9 +156,9 @@ class TestPositioningRotationController(
                 kalmanZ = posArrayFiltered[2]
             )
         )
-        if(samplesLimit > 0 && samples.size >= samplesLimit) {
+        if (samplesLimit > 0 && samples.size >= samplesLimit) {
             //Remove the rows that not accomplish with the minimal markers amount required
-            if(closestMarkersUsed > 0) {
+            if (closestMarkersUsed > 0) {
                 samples = samples.filter {
                     it.amountMarkersEmployed == closestMarkersUsed
                 } as MutableList<TestPositioningRotationSample>

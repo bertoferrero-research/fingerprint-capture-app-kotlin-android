@@ -110,6 +110,16 @@ class TestPositioningRotationScreen : Screen {
             }
         }
 
+
+
+        val imageFileChooser = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { fileUri: Uri? ->
+            fileUri?.let {
+                viewModel.cameraController.testingImage = it.toString()
+            }
+        }
+
         val folderPickerLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocumentTree()
         ) { uri: Uri? ->
@@ -182,6 +192,21 @@ class TestPositioningRotationScreen : Screen {
                         label = { Text("Kalman filter - Covariance R") }
                     )
 
+                    SimpleDropdownMenu(
+                        label = "Source type",
+                        values = arrayOf<String>("live", "image"),
+                        options = arrayOf("Live camera", "Image"),
+                        onOptionSelected = {
+                            if(it == "live"){
+                                viewModel.cameraController.testingImage = null
+                            }
+                            else{
+                                imageFileChooser.launch(arrayOf("image/*"))
+                            }
+                        },
+                        selectedValue = "live"
+                    )
+
                     Button(
                         onClick = {
                             markerSettingsFileChooser.launch(arrayOf("application/json"))
@@ -218,16 +243,21 @@ class TestPositioningRotationScreen : Screen {
                 }
             }
         ) { innerPadding ->
-            OpenCvCamera(
-                object : CameraBridgeViewBase.CvCameraViewListener2 {
-                    override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
-                        return cameraController.processFrame(inputFrame)
-                    }
+            if(viewModel.cameraController.testingImage == null) {
+                OpenCvCamera(
+                    object : CameraBridgeViewBase.CvCameraViewListener2 {
+                        override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
+                            return cameraController.processFrame(inputFrame)
+                        }
 
-                    override fun onCameraViewStarted(width: Int, height: Int) {}
-                    override fun onCameraViewStopped() {}
-                }
-            ).Render()
+                        override fun onCameraViewStarted(width: Int, height: Int) {}
+                        override fun onCameraViewStopped() {}
+                    }
+                ).Render()
+            }
+            else{
+                //TODO Mostrar aquí una imagen estática si el proceso se lanza desde imagen de muestra
+            }
         }
     }
 

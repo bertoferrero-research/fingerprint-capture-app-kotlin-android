@@ -7,12 +7,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestPositioningRotationController
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestPositioningRotationSample
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.launch
 
 class TestPositioningRotationViewModel : ViewModel() {
 
@@ -41,6 +43,17 @@ class TestPositioningRotationViewModel : ViewModel() {
         }
         cameraController.initProcess()
         isRunning = true
+        if(cameraController.testingImage!=null){
+            viewModelScope.launch{
+                try {
+                    cameraController.startImageSimulation()
+                } catch (e: Exception) {
+                    // Manejo de errores
+                    println("Error: ${e.message}")
+                    stopTest()
+                }
+            }
+        }
     }
 
     fun stopTest() {
@@ -64,7 +77,9 @@ class TestPositioningRotationViewModel : ViewModel() {
     }
 
     fun evaluateEnableButtonTest(){
-        initButtonEnabled = cameraController.markersDefinition.isNotEmpty() && outputFolderUri !== null;
+        initButtonEnabled =
+            cameraController.markersDefinition.isNotEmpty()
+                    && outputFolderUri !== null;
     }
 
     fun loadMarkersFromJson(jsonString: String) {
@@ -124,7 +139,6 @@ class TestPositioningRotationViewModel : ViewModel() {
     private fun onSamplesLimitReached(samples: List<TestPositioningRotationSample>){
         stopTest()
         pendingSamplesSave = true
-        //TODO write the samples
     }
 
 }
