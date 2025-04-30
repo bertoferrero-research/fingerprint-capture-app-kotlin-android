@@ -43,7 +43,7 @@ class TestPositioningRotationViewModel : ViewModel() {
         }
         cameraController.initProcess()
         isRunning = true
-        if(cameraController.testingImage!=null){
+        if(cameraController.testingImageFrame!=null){
             viewModelScope.launch{
                 try {
                     cameraController.startImageSimulation()

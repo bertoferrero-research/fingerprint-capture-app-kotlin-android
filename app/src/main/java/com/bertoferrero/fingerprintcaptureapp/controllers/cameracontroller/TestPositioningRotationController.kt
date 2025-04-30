@@ -25,7 +25,7 @@ class TestPositioningRotationController(
     public var samplesLimit: Int = 0,
     public var multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.CLOSEST,
     public var closestMarkersUsed: Int = 0,
-    public var testingImage: String? = null,
+    public var testingImageFrame: CvCameraViewFrameMockFromImage? = null,
     private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit,
 ) : ICameraController {
     // Running variables
@@ -83,19 +83,13 @@ class TestPositioningRotationController(
 
     suspend fun startImageSimulation() {
         //Check if the image has been defined
-        if (testingImage == null) {
+        if (testingImageFrame?.rgba() == null) {
             throw Exception("Testing image is not defined")
-        }
-
-        //Try loading it
-        val frame = CvCameraViewFrameMockFromImage(testingImage!!)
-        if (frame.rgba() == null) {
-            throw Exception("Selected image cannot be loaded")
         }
 
         //Start the testing loop
         while (running) {
-            processFrame(frame)
+            processFrame(testingImageFrame)
             yield() // Cede el control para evitar bloquear el hilo
         }
     }

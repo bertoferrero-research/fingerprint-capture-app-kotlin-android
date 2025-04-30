@@ -1,12 +1,14 @@
 package com.bertoferrero.fingerprintcaptureapp.views.testscreens
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,12 +21,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.testscreens.TestPositioningRotationViewModel
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
@@ -33,7 +37,10 @@ import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import com.bertoferrero.fingerprintcaptureapp.views.components.OpenCvCamera
 import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMenu
 import org.opencv.android.CameraBridgeViewBase
+import org.opencv.android.Utils
 import org.opencv.core.Mat
+import org.opencv.imgcodecs.Imgcodecs
+import androidx.core.graphics.createBitmap
 
 class TestPositioningRotationScreen : Screen {
 
@@ -116,7 +123,18 @@ class TestPositioningRotationScreen : Screen {
             ActivityResultContracts.OpenDocument()
         ) { fileUri: Uri? ->
             fileUri?.let {
-                viewModel.cameraController.testingImage = it.toString()
+
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    val bytes = inputStream?.readBytes()
+                    inputStream?.close()
+                    bytes?.let {
+                        viewModel.cameraController.testingImageFrame =
+                            CvCameraViewFrameMockFromImage(bytes)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
 
@@ -198,13 +216,13 @@ class TestPositioningRotationScreen : Screen {
                         options = arrayOf("Live camera", "Image"),
                         onOptionSelected = {
                             if(it == "live"){
-                                viewModel.cameraController.testingImage = null
+                                viewModel.cameraController.testingImageFrame = null
                             }
                             else{
                                 imageFileChooser.launch(arrayOf("image/*"))
                             }
                         },
-                        selectedValue = "live"
+                        selectedValue = if(viewModel.cameraController.testingImageFrame == null) "live" else "image"
                     )
 
                     Button(
@@ -243,7 +261,7 @@ class TestPositioningRotationScreen : Screen {
                 }
             }
         ) { innerPadding ->
-            if(viewModel.cameraController.testingImage == null) {
+            if(viewModel.cameraController.testingImageFrame == null) {
                 OpenCvCamera(
                     object : CameraBridgeViewBase.CvCameraViewListener2 {
                         override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
@@ -257,8 +275,21 @@ class TestPositioningRotationScreen : Screen {
             }
             else{
                 //TODO Mostrar aquí una imagen estática si el proceso se lanza desde imagen de muestra
+                Image(
+                    bitmap = matToBitmap(viewModel.cameraController.testingImageFrame!!.rgba()!!).asImageBitmap(),
+                    contentDescription = "Testing image"
+
+                )
             }
+
+
         }
+    }
+
+    fun matToBitmap(mat: Mat): Bitmap {
+        val bitmap = createBitmap(mat.cols(), mat.rows())
+        Utils.matToBitmap(mat, bitmap)
+        return bitmap
     }
 
 }
