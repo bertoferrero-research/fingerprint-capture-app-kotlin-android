@@ -38,15 +38,25 @@ class TestPositioningRotationViewModel : ViewModel() {
         private set
 
     fun startTest() {
-        if(outputFolderUri == null){
+        if (outputFolderUri == null) {
             return
         }
         cameraController.initProcess()
         isRunning = true
-        if(cameraController.testingImageFrame!=null){
-            viewModelScope.launch{
+        if (cameraController.testingImageFrame != null) {
+            viewModelScope.launch {
                 try {
                     cameraController.startImageSimulation()
+                } catch (e: Exception) {
+                    // Manejo de errores
+                    println("Error: ${e.message}")
+                    stopTest()
+                }
+            }
+        } else if (cameraController.testingVideoFrame != null){
+            viewModelScope.launch {
+                try {
+                    cameraController.startVideoSimulation()
                 } catch (e: Exception) {
                     // Manejo de errores
                     println("Error: ${e.message}")
@@ -71,12 +81,12 @@ class TestPositioningRotationViewModel : ViewModel() {
         cameraController.arucoDictionaryType = type
     }
 
-    fun updateOutputFolderUri(uri: Uri){
+    fun updateOutputFolderUri(uri: Uri) {
         outputFolderUri = uri
         evaluateEnableButtonTest()
     }
 
-    fun evaluateEnableButtonTest(){
+    fun evaluateEnableButtonTest() {
         initButtonEnabled =
             cameraController.markersDefinition.isNotEmpty()
                     && outputFolderUri !== null;
@@ -91,10 +101,10 @@ class TestPositioningRotationViewModel : ViewModel() {
 
     //Sample files block
 
-    fun saveSampleFile(context: Context){
+    fun saveSampleFile(context: Context) {
         pendingSamplesSave = false
         var samples = cameraController.samples
-        if(outputFolderUri == null || samples.isEmpty()){
+        if (outputFolderUri == null || samples.isEmpty()) {
             return
         }
         //Transform samples into csv
@@ -136,7 +146,7 @@ class TestPositioningRotationViewModel : ViewModel() {
 
     }
 
-    private fun onSamplesLimitReached(samples: List<TestPositioningRotationSample>){
+    private fun onSamplesLimitReached(samples: List<TestPositioningRotationSample>) {
         stopTest()
         pendingSamplesSave = true
     }

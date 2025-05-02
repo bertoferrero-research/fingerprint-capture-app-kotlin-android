@@ -19,6 +19,10 @@ class CvCameraViewFrameMockFromImage: CameraBridgeViewBase.CvCameraViewFrame {
         mat = cvimage.imread(imagePath, cvimage.IMREAD_COLOR_RGB)
     }
 
+    constructor(mat: Mat){
+        this.mat = mat
+    }
+
     override fun rgba(): Mat? {
         return mat
     }

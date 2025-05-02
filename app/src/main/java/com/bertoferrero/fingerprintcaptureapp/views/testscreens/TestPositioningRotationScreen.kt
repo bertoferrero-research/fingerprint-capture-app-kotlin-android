@@ -41,6 +41,8 @@ import org.opencv.android.Utils
 import org.opencv.core.Mat
 import org.opencv.imgcodecs.Imgcodecs
 import androidx.core.graphics.createBitmap
+import java.io.File
+import java.io.FileOutputStream
 
 class TestPositioningRotationScreen : Screen {
 
@@ -138,6 +140,22 @@ class TestPositioningRotationScreen : Screen {
             }
         }
 
+        val videoFileChooser = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { fileUri: Uri? ->
+            fileUri?.let {
+                //Copy the video to a temporal file
+                val inputStream = context.contentResolver.openInputStream(fileUri)
+                val tempFile = File.createTempFile("video_input", ".mp4", context.cacheDir)
+                inputStream.use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        input?.copyTo(output)
+                    }
+                }
+                viewModel.cameraController.testingVideoFrame = tempFile
+            }
+        }
+
         val folderPickerLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocumentTree()
         ) { uri: Uri? ->
@@ -212,17 +230,20 @@ class TestPositioningRotationScreen : Screen {
 
                     SimpleDropdownMenu(
                         label = "Source type",
-                        values = arrayOf<String>("live", "image"),
-                        options = arrayOf("Live camera", "Image"),
+                        values = arrayOf<String>("live", "image", "video"),
+                        options = arrayOf("Live camera", "Image", "Video"),
                         onOptionSelected = {
-                            if(it == "live"){
-                                viewModel.cameraController.testingImageFrame = null
-                            }
-                            else{
-                                imageFileChooser.launch(arrayOf("image/*"))
+                            when (it) {
+                                "live" -> viewModel.cameraController.testingImageFrame = null
+                                "image" -> imageFileChooser.launch(arrayOf("image/*"))
+                                "video" -> videoFileChooser.launch(arrayOf("video/*"))
                             }
                         },
-                        selectedValue = if(viewModel.cameraController.testingImageFrame == null) "live" else "image"
+                        selectedValue = when {
+                            viewModel.cameraController.testingImageFrame is CvCameraViewFrameMockFromImage -> "image"
+                            viewModel.cameraController.testingVideoFrame is File -> "video"
+                            else -> "live"
+                        }
                     )
 
                     Button(
@@ -261,7 +282,17 @@ class TestPositioningRotationScreen : Screen {
                 }
             }
         ) { innerPadding ->
-            if(viewModel.cameraController.testingImageFrame == null) {
+            if(viewModel.cameraController.testingImageFrame != null) {
+                Image(
+                    bitmap = matToBitmap(viewModel.cameraController.testingImageFrame!!.rgba()!!).asImageBitmap(),
+                    contentDescription = "Testing image"
+
+                )
+            }
+            else if(viewModel.cameraController.testingVideoFrame !== null){
+                //TODO mostrar aquí la renderización del video
+            }
+            else{
                 OpenCvCamera(
                     object : CameraBridgeViewBase.CvCameraViewListener2 {
                         override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
@@ -272,14 +303,6 @@ class TestPositioningRotationScreen : Screen {
                         override fun onCameraViewStopped() {}
                     }
                 ).Render()
-            }
-            else{
-                //TODO Mostrar aquí una imagen estática si el proceso se lanza desde imagen de muestra
-                Image(
-                    bitmap = matToBitmap(viewModel.cameraController.testingImageFrame!!.rgba()!!).asImageBitmap(),
-                    contentDescription = "Testing image"
-
-                )
             }
 
 

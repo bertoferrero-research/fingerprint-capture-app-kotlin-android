@@ -1,6 +1,7 @@
 // CalibrationManager.kt
 package com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller
 
+import android.util.Log
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.GlobalPositioner
@@ -13,6 +14,9 @@ import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 import org.opencv.imgproc.Imgproc
 import org.opencv.objdetect.Objdetect
+import org.opencv.videoio.VideoCapture
+import org.opencv.videoio.Videoio
+import java.io.File
 import kotlin.Double
 import kotlin.Int
 import kotlin.math.roundToInt
@@ -26,6 +30,7 @@ class TestPositioningRotationController(
     public var multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.CLOSEST,
     public var closestMarkersUsed: Int = 0,
     public var testingImageFrame: CvCameraViewFrameMockFromImage? = null,
+    public var testingVideoFrame: File? = null,
     private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit,
 ) : ICameraController {
     // Running variables
@@ -78,6 +83,10 @@ class TestPositioningRotationController(
             markersDetector = null
             markersId = null
             positioner = null
+            if (testingVideoFrame != null) {
+                testingVideoFrame!!.deleteOnExit()
+                testingVideoFrame = null
+            }
         }
     }
 
@@ -92,6 +101,83 @@ class TestPositioningRotationController(
             processFrame(testingImageFrame)
             yield() // Cede el control para evitar bloquear el hilo
         }
+    }
+
+    suspend fun startVideoSimulation() {
+        //Check the video already exists
+        if (testingVideoFrame == null) {
+            throw Exception("Testing video is not defined")
+        }
+
+        //Load the video
+        val videoCapture = VideoCapture()
+        if (!videoCapture.open(testingVideoFrame!!.absolutePath)) {
+            throw Exception("OpenCV cannot load this video")
+        }
+
+        samplesLimit =
+            0 //For security reasons, we require to ensure this code body is fully executed
+
+        // FPS and delay per frame
+        val fps = videoCapture.get(Videoio.CAP_PROP_FPS)
+        val frameDelayMillis = if (fps > 0) (1000 / fps).toLong() else 33L
+
+        val frame = Mat()
+        var processedFrames = 0
+        var droppedFrames = 0
+        val startGlobalTime = System.currentTimeMillis()
+
+        try {
+            while (running) {
+                val startTime = System.currentTimeMillis()
+
+                val readSuccess = videoCapture.read(frame)
+                if (!readSuccess || frame.empty()) break
+
+                val simulatedFrame = CvCameraViewFrameMockFromImage(frame.clone())
+
+                // Procesamiento del frame
+                val result = processFrame(simulatedFrame)
+                processedFrames++
+
+                // Calcular duración del procesamiento
+                val processingTime = System.currentTimeMillis() - startTime
+                val remainingTime = frameDelayMillis - processingTime
+
+                if (remainingTime > 0) {
+                    Thread.sleep(remainingTime)
+                } else {
+                    // Caída de frame: descartar uno o más frames para compensar
+                    val framesToDrop = (processingTime / frameDelayMillis).toInt()
+                    for (i in 0 until framesToDrop) {
+                        if (!videoCapture.read(Mat())) break
+                        droppedFrames++
+                    }
+                }
+
+                // FPS simulados
+                val elapsedTimeSec = (System.currentTimeMillis() - startGlobalTime) / 1000.0
+                val simulatedFps = if (elapsedTimeSec > 0) processedFrames / elapsedTimeSec else 0.0
+
+                // Stats
+                Log.d(
+                    "Simulating video - Frame info",
+                    "Processed: $processedFrames, Dropped: $droppedFrames, FPS: %.2f".format(
+                        simulatedFps
+                    )
+                )
+                yield()
+            }
+        } catch (e: Exception) {
+            videoCapture.release()
+            throw e
+        }
+
+        videoCapture.release()
+
+        Log.d("Simulating video - End", "Processed: $processedFrames, Dropped: $droppedFrames")
+
+        onSamplesLimitReached(samples)
     }
 
     override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
