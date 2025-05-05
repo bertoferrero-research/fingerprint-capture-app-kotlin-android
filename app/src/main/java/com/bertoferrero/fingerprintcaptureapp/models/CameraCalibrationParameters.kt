@@ -67,12 +67,23 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
             return MatSerialization.DeserializeToMat(dataString)
         }
 
-        public fun export():  Map<String, String?>{
+        fun export():  Map<String, String?>{
             val sharedPreferences: SharedPreferences = SharedPreferencesManager.getCameraCalibrationSharedPreferences()
             return mapOf(
                 cameraMatrixParamKey to sharedPreferences.getString("${cameraMatrixParamKey}_data", null),
                 distCoeffsParamKey to sharedPreferences.getString("${distCoeffsParamKey}_data", null)
             )
+        }
+
+        fun import(parameters: Map<String, String?>){
+            if(!parameters.containsKey(cameraMatrixParamKey) || !parameters.containsKey(distCoeffsParamKey)){
+                throw Exception("Importing camera parameters without filling required keys")
+            }
+            val sharedPreferences: SharedPreferences = SharedPreferencesManager.getCameraCalibrationSharedPreferences()
+            sharedPreferences.edit() {
+                putString("${cameraMatrixParamKey}_data", parameters[cameraMatrixParamKey])
+                putString("${distCoeffsParamKey}_data", parameters[distCoeffsParamKey])
+            }
         }
     }
 }
