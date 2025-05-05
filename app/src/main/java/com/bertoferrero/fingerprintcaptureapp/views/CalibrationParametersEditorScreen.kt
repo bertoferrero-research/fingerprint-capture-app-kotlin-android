@@ -1,9 +1,13 @@
 package com.bertoferrero.fingerprintcaptureapp.views
 
 import android.content.Context
+import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -25,18 +30,6 @@ import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 
 class CalibrationParametersEditorScreen : Screen {
 
-    @Composable
-    fun getCameraCharacteristics() {
-        val context = LocalContext.current
-        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val cameraList = cameraManager.cameraIdList
-        val cameraId = cameraList.first()
-        val characteristics = cameraManager.getCameraCharacteristics(cameraId)
-        val focalLength =
-            characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.first()
-        val a = 1
-
-    }
 
     @Composable
     override fun Content() {
@@ -48,7 +41,17 @@ class CalibrationParametersEditorScreen : Screen {
             )
         }
 
-        getCameraCharacteristics()
+        val saveParametersFolderChooser = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocumentTree()
+        ) { uri: Uri? ->
+            uri?.let {
+                // Guardar permiso persistente
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+        }
 
         BackHandler {
             calibrationParameters.saveParameters()
@@ -157,6 +160,10 @@ class CalibrationParametersEditorScreen : Screen {
                             modifier = Modifier.fillParentMaxWidth(0.50f).padding(2.dp),
                             label = { Text("k3") }
                         )
+                    }
+
+                    Button(onClick = { saveParametersFolderChooser.launch(null) }) {
+                        Text("Save parameters")
                     }
 
 

@@ -66,5 +66,13 @@ class CameraCalibrationParameters(var cameraMatrix: Mat, var distCoeffs: Mat) {
             }
             return MatSerialization.DeserializeToMat(dataString)
         }
+
+        public fun export():  Map<String, String?>{
+            val sharedPreferences: SharedPreferences = SharedPreferencesManager.getCameraCalibrationSharedPreferences()
+            return mapOf(
+                cameraMatrixParamKey to sharedPreferences.getString("${cameraMatrixParamKey}_data", null),
+                distCoeffsParamKey to sharedPreferences.getString("${distCoeffsParamKey}_data", null)
+            )
+        }
     }
 }
