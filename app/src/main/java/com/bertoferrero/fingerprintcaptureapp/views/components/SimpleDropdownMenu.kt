@@ -29,8 +29,13 @@ fun <T> SimpleDropdownMenu(
     modifier: Modifier = Modifier
 ) {
     val selectedIndex = remember { mutableIntStateOf(-1) }
-    if (selectedIndex.intValue == -1 && selectedValue != null) {
-        selectedIndex.intValue = values.indexOf(selectedValue)
+    if (selectedIndex.intValue == -1) {
+        if(selectedValue != null && values.contains(selectedValue)) {
+            selectedIndex.intValue = values.indexOf(selectedValue)
+        }
+        else{
+            selectedIndex.intValue = 0
+        }
     }
 
     val (expanded, setExpanded) = remember { mutableStateOf(false) }
