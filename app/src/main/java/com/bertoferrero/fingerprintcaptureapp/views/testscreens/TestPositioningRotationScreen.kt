@@ -202,8 +202,8 @@ class TestPositioningRotationScreen : Screen {
 
                     SimpleDropdownMenu(
                         label = "When multiple markers",
-                        values = MultipleMarkersBehaviour.entries.toTypedArray(),
-                        options = arrayOf("Closest", "Weighted average", "Average"),
+                        values = arrayOf(null, *MultipleMarkersBehaviour.entries.toTypedArray()),
+                        options = arrayOf("All (incompatible with kalman filter)", "Closest", "Weighted average", "Average", "Weighted median", "Median"),
                         onOptionSelected = {
                             viewModel.cameraController.multipleMarkersBehaviour = it
                         },

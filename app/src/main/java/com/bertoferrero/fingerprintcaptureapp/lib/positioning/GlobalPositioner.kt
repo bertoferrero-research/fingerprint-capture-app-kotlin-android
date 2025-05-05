@@ -117,6 +117,13 @@ class GlobalPositioner(
                 multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_AVERAGE
             )
         }
+        // Calculate median of the positions
+        else if (multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_MEDIAN || multipleMarkersBehaviour == MultipleMarkersBehaviour.MEDIAN) {
+            returnData = getMedianPosition(
+                extractedPositions,
+                multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_MEDIAN
+            )
+        }
         else {
             // Return the closest position
             returnData = extractedPositions.firstOrNull()
@@ -172,9 +179,79 @@ class GlobalPositioner(
     }
 }
 
+/**
+ * Calculates the weighted or simple median of positions in the X, Y, and Z axes.
+ *
+ * @param positions List of positions, where each position is a list of [x, y, z, distance].
+ * @param useWeighted Indicates whether to use the distance as a weight for calculating the weighted median.
+ * @return A list with the medians of the axes [medianX, medianY, medianZ], or [0.0, 0.0, 0.0] if no valid data is provided.
+ */
+private fun getMedianPosition(
+    positions: List<List<Double>>,
+    useWeighted: Boolean = true,
+): List<Double>? {
+
+    if (positions.isEmpty()) return null
+
+    // Lists to store pairs of values and weights for each axis
+    val xList = mutableListOf<Pair<Double, Double>>() // Pair(value, weight)
+    val yList = mutableListOf<Pair<Double, Double>>()
+    val zList = mutableListOf<Pair<Double, Double>>()
+
+    for (position in positions) {
+        // Calculate the weight based on the distance, or use uniform weight if not weighted
+        val distance = if (useWeighted) position.getOrNull(3) ?: continue else 1.0
+        if (distance <= 0.0) continue // Avoid invalid distances or division by 0
+
+        val weight = 1.0 / (distance * distance)
+        xList.add(position[0] to weight)
+        yList.add(position[1] to weight)
+        zList.add(position[2] to weight)
+    }
+
+    // If no valid data, return a default position
+    if (xList.isEmpty()) return listOf(0.0, 0.0, 0.0)
+
+    // Calculate the weighted median for each axis
+    return listOf(
+        weightedMedianPosition(xList),
+        weightedMedianPosition(yList),
+        weightedMedianPosition(zList)
+    )
+}
+
+/**
+ * Calculates the weighted median of a list of pairs (value, weight).
+ *
+ * @param data A list of pairs where the first element is the value and the second is the weight.
+ * @return The value corresponding to the weighted median.
+ *
+ * The method works as follows:
+ * 1. Sorts the list of pairs by the value (first element of the pair).
+ * 2. Computes the total weight by summing up all the weights (second element of the pair).
+ * 3. Iterates through the sorted list, accumulating the weights.
+ * 4. Returns the value when the cumulative weight reaches or exceeds half of the total weight.
+ * 5. If no value is found during the iteration (unlikely), it returns the last value in the sorted list as a fallback.
+ */
+private fun weightedMedianPosition(data: List<Pair<Double, Double>>): Double {
+    val sorted = data.sortedBy { it.first }
+    val totalWeight = sorted.sumOf { it.second }
+    var cumulativeWeight = 0.0
+
+    for ((value, weight) in sorted) {
+        cumulativeWeight += weight
+        if (cumulativeWeight >= totalWeight / 2) {
+            return value
+        }
+    }
+    return sorted.last().first // fallback, shouldn't happen
+}
+
 
 enum class MultipleMarkersBehaviour {
     CLOSEST,
     WEIGHTED_AVERAGE,
-    AVERAGE
+    AVERAGE,
+    WEIGHTED_MEDIAN,
+    MEDIAN
 }
