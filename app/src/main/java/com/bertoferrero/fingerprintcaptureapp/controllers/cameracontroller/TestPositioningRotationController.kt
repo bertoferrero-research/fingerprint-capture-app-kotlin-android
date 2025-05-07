@@ -180,7 +180,15 @@ class TestPositioningRotationController(
         onSamplesLimitReached(samples)
     }
 
-    override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
+    override fun processFrame(
+        inputFrame: CameraBridgeViewBase.CvCameraViewFrame?
+    ): Mat {
+        return processFrame(inputFrame, System.currentTimeMillis())
+    }
+
+    fun processFrame(
+        inputFrame: CameraBridgeViewBase.CvCameraViewFrame?,
+        sampleTimestamp: Long): Mat {
 
         //Check if we have to skip this frame
         if (!running || inputFrame == null) {
@@ -239,6 +247,7 @@ class TestPositioningRotationController(
             //Append the sample
             samples.add(
                 TestPositioningRotationSample(
+                    timestamp = sampleTimestamp,
                     multipleMarkersBehaviour = it,
                     amountMarkersEmployed = amountMarkersEmployed,
                     kalmanQ = kalmanFilter.covQ,
