@@ -120,7 +120,7 @@ class TestPositioningRotationController(
 
         // FPS and delay per frame
         val fps = videoCapture.get(Videoio.CAP_PROP_FPS)
-        val frameDelayMillis = if (fps > 0) (1000 / fps).toLong() else 33L
+        val frameDelayMillis = if (fps > 0) (1000 / fps).toLong() else 33L //It is the time per frame in ms (time = 1/fps)
 
         val frame = Mat()
         var processedFrames = 0
@@ -137,7 +137,7 @@ class TestPositioningRotationController(
                 val simulatedFrame = CvCameraViewFrameMockFromImage(frame.clone())
 
                 // Procesamiento del frame
-                val result = processFrame(simulatedFrame)
+                val result = processFrame(simulatedFrame, startTime)
                 processedFrames++
 
                 // Calcular duración del procesamiento

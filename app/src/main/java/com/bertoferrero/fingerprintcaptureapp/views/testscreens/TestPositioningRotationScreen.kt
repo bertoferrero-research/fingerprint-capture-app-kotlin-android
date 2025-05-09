@@ -133,6 +133,7 @@ class TestPositioningRotationScreen : Screen {
                     bytes?.let {
                         viewModel.cameraController.testingImageFrame =
                             CvCameraViewFrameMockFromImage(bytes)
+                        viewModel.cameraController.testingVideoFrame = null
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -153,6 +154,7 @@ class TestPositioningRotationScreen : Screen {
                     }
                 }
                 viewModel.cameraController.testingVideoFrame = tempFile
+                viewModel.cameraController.testingImageFrame = null
             }
         }
 
@@ -234,7 +236,10 @@ class TestPositioningRotationScreen : Screen {
                         options = arrayOf("Live camera", "Image", "Video"),
                         onOptionSelected = {
                             when (it) {
-                                "live" -> viewModel.cameraController.testingImageFrame = null
+                                "live" -> {
+                                    viewModel.cameraController.testingImageFrame = null
+                                    viewModel.cameraController.testingVideoFrame = null
+                                }
                                 "image" -> imageFileChooser.launch(arrayOf("image/*"))
                                 "video" -> videoFileChooser.launch(arrayOf("video/*"))
                             }
