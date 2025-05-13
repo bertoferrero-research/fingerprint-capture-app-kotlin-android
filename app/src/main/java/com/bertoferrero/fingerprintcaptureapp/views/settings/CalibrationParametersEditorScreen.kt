@@ -1,11 +1,6 @@
-package com.bertoferrero.fingerprintcaptureapp.views
+package com.bertoferrero.fingerprintcaptureapp.views.settings
 
-import android.content.Context
-import android.content.Intent
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
 import android.net.Uri
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,7 +25,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
-import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken

@@ -152,6 +152,10 @@ class TestPositioningRotationController(
                     for (i in 0 until framesToDrop) {
                         if (!videoCapture.read(Mat())) break
                         droppedFrames++
+                        Log.d(
+                            "Simulating video - Frame info",
+                            "Skipping frame"
+                        )
                     }
                 }
 

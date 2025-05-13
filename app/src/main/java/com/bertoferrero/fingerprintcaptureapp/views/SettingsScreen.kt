@@ -16,16 +16,10 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.bertoferrero.fingerprintcaptureapp.views.capture.OfflineCaptureScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestDistanceScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningRotationScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningTrilaterationScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestRssiMonitorScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestTrilaterationLibraryScreen
 
-class MainScreen : Screen {
+class SettingsScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -43,29 +37,22 @@ class MainScreen : Screen {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
+
                     Button(
                         onClick = {
-                            navigator.push(OfflineCaptureScreen())
+                            navigator.push(CalibratingScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Offline Capture")
+                        Text("Calibrate camera")
                     }
                     Button(
                         onClick = {
-                            navigator.push(SettingsScreen())
+                            navigator.push(CalibrationParametersEditorScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Settings")
-                    }
-                    Button(
-                        onClick = {
-                            navigator.push(SettingsScreen())
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Tests")
+                        Text("Calibration Parameters")
                     }
 
                 }
