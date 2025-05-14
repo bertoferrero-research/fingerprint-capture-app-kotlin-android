@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +35,7 @@ import org.opencv.android.CameraBridgeViewBase
 import org.opencv.android.Utils
 import org.opencv.core.Mat
 import androidx.core.graphics.createBitmap
+import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.capture.OfflineCaptureViewModel
 
 class OfflineCaptureScreen : Screen {
@@ -60,11 +62,12 @@ class OfflineCaptureScreen : Screen {
                 navigator.pop()
             }
         }
-
-        if (!isRunning) {
-            RenderSettingsScreen(viewModel)
-        } else {
-            RenderRunningContent(viewModel)
+        if(BleScanner.checkPermissions()) {
+            if (!isRunning) {
+                RenderSettingsScreen(viewModel)
+            } else {
+                RenderRunningContent(viewModel)
+            }
         }
     }
 
@@ -171,7 +174,7 @@ class OfflineCaptureScreen : Screen {
                     }
 
                     Button(
-                        onClick = viewModel::startCapture,
+                        onClick = {viewModel.startCapture(context)},
                         enabled = (viewModel.initButtonEnabled)
                     ) {
                         Text("Start")
@@ -194,7 +197,14 @@ class OfflineCaptureScreen : Screen {
                 }
             }
         ) { innerPadding ->
-            Text("Capture in progress")
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("${viewModel.capturedSamplesCounter} sample(s) captured")
+            }
         }
     }
 

@@ -61,7 +61,7 @@ class MainScreen : Screen {
                     }
                     Button(
                         onClick = {
-                            navigator.push(SettingsScreen())
+                            navigator.push(TestsScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
