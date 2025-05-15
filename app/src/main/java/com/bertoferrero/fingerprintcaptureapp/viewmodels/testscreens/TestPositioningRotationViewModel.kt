@@ -107,26 +107,32 @@ class TestPositioningRotationViewModel : ViewModel() {
         if (outputFolderUri == null || samples.isEmpty()) {
             return
         }
+        val executionId = System.currentTimeMillis()
+
         //Transform samples into csv
         val header = listOf(
             "timestamp",
+            "execution_id",
             "multipleMarkersBehaviour",
             "amountMarkersEmployed",
             "kalmanQ",
             "kalmanR",
             "rawX", "rawY", "rawZ",
-            "kalmanX", "kalmanY", "kalmanZ"
+            "kalmanX", "kalmanY", "kalmanZ",
+            "markers_info"
         ).joinToString(",")
 
         val rows = samples.map { sample ->
             listOf(
                 sample.timestamp,
+                executionId,
                 sample.multipleMarkersBehaviour.name,
                 sample.amountMarkersEmployed,
                 sample.kalmanQ,
                 sample.kalmanR,
                 sample.rawX, sample.rawY, sample.rawZ,
-                sample.kalmanX, sample.kalmanY, sample.kalmanZ
+                sample.kalmanX, sample.kalmanY, sample.kalmanZ,
+                sample.markersEmployed.toString()
             ).joinToString(",")
         }
 

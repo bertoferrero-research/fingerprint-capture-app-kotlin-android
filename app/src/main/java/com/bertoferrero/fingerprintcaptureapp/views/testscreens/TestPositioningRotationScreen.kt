@@ -219,6 +219,12 @@ class TestPositioningRotationScreen : Screen {
                     )
 
                     NumberField<Double>(
+                        value = viewModel.cameraController.ransacThreshold,
+                        onValueChange = { viewModel.cameraController.ransacThreshold = it },
+                        label = { Text("RT - Ransac Threshold") }
+                    )
+
+                    NumberField<Double>(
                         value = viewModel.cameraController.kalmanFilter.covQ,
                         onValueChange = { viewModel.cameraController.kalmanFilter.covQ = it },
                         label = { Text("Kalman filter - Covariance Q") }

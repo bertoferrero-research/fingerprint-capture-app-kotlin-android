@@ -6,6 +6,8 @@ import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.GlobalPositioner
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
+import com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position
+import com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionKalmanFilter
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
@@ -31,6 +33,7 @@ class TestPositioningRotationController(
     public var closestMarkersUsed: Int = 0,
     public var testingImageFrame: CvCameraViewFrameMockFromImage? = null,
     public var testingVideoFrame: File? = null,
+    public var ransacThreshold: Double = 0.2,
     private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit,
 ) : ICameraController {
     // Running variables
@@ -229,19 +232,20 @@ class TestPositioningRotationController(
 
         multipleMarkersBehaviours.forEach {
             // Calculate the camera position
-            val (amountMarkersEmployed, posArray) = positioner?.getPositionFromArucoMarkers(
+            val (position, markersEmployed) = positioner?.getPositionFromArucoMarkers(
                 detectedMarkers,
                 it,
-                closestMarkersUsed
+                closestMarkersUsed,
+                ransacThreshold
             ) ?: return rgb
 
 
             //KALMAN FILTER (incompatible with multiple markers behaviours
             val posArrayFiltered = if (multipleMarkersBehaviours.size == 1) {
                 kalmanFilter.updateWithTimestampControl(
-                    posArray[0].toFloat(),
-                    posArray[1].toFloat(),
-                    posArray[2].toFloat()
+                    position.x.toFloat(),
+                    position.y.toFloat(),
+                    position.z.toFloat()
                 )
 
             } else {
@@ -253,35 +257,36 @@ class TestPositioningRotationController(
                 TestPositioningRotationSample(
                     timestamp = sampleTimestamp,
                     multipleMarkersBehaviour = it,
-                    amountMarkersEmployed = amountMarkersEmployed,
+                    amountMarkersEmployed = markersEmployed.size,
                     kalmanQ = kalmanFilter.covQ,
                     kalmanR = kalmanFilter.covR,
-                    rawX = posArray[0].toFloat(),
-                    rawY = posArray[1].toFloat(),
-                    rawZ = posArray[2].toFloat(),
+                    rawX = position.x.toFloat(),
+                    rawY = position.y.toFloat(),
+                    rawZ = position.z.toFloat(),
                     kalmanX = posArrayFiltered[0],
                     kalmanY = posArrayFiltered[1],
-                    kalmanZ = posArrayFiltered[2]
+                    kalmanZ = posArrayFiltered[2],
+                    markersEmployed = markersEmployed
                 )
             )
             if (samplesLimit > 0 && samples.size >= (samplesLimit * multipleMarkersBehaviours.size)) {
                 //Remove the rows that not accomplish with the minimal markers amount required
-                if (closestMarkersUsed > 0) {
+                /*if (closestMarkersUsed > 0) {
                     samples = samples.filter {
                         it.amountMarkersEmployed == closestMarkersUsed
                     } as MutableList<TestPositioningRotationSample>
-                }
+                }*/
                 onSamplesLimitReached(samples)
             }
 
             //Print the position
             if (multipleMarkersBehaviours.size == 1) {
-                println("Position: (${posArray[0]}, ${posArray[1]}, ${posArray[2]})")
+                println("Position: (${position.x}, ${position.y}, ${position.z})")
                 println("Position Filtered: (${posArrayFiltered[0]}, ${posArrayFiltered[1]}, ${posArrayFiltered[2]})")
                 //Also in the image
                 org.opencv.imgproc.Imgproc.putText(
                     rgb,
-                    "Position: (${(posArray[0] * 1000).roundToInt() / 1000.0}, ${(posArray[1] * 1000).roundToInt() / 1000.0}, ${(posArray[2] * 1000).roundToInt() / 1000.0})",
+                    "Position: (${(position.x * 1000).roundToInt() / 1000.0}, ${(position.y * 1000).roundToInt() / 1000.0}, ${(position.z * 1000).roundToInt() / 1000.0})",
                     org.opencv.core.Point(
                         25.0, 25.0
                     ),
@@ -324,4 +329,5 @@ class TestPositioningRotationSample(
     val kalmanX: Float,
     val kalmanY: Float,
     val kalmanZ: Float,
+    val markersEmployed: List<PositionFromMarker>
 )

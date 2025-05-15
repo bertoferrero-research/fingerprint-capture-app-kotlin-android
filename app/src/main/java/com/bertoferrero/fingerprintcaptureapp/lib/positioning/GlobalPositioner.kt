@@ -22,14 +22,14 @@ class GlobalPositioner(
      * Get the camera position from the detected ArUco markers.
      * @param detectedMarkers List of detected markers in the current frame.
      * @param multipleMarkersBehaviour Behaviour when multiple markers are detected.
-     * @return The camera position as a list of [x, y, z] or null if no valid markers are found.
+     * @return A Pair with the calculated position and the list of each detected marker
      */
     public fun getPositionFromArucoMarkers(
         detectedMarkers: List<MarkersInFrame>,
         multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.WEIGHTED_AVERAGE,
         closestMarkersUsed: Int = 0,
-
-        ): Pair<Int, List<Double>>? {
+        ransacThreshold: Double = 0.2
+        ): Pair<Position, List<PositionFromMarker>>? {
 
         var detectedMarkers = detectedMarkers
 
@@ -47,7 +47,7 @@ class GlobalPositioner(
         }
 
         // CALCULATE THE CAMERA POSITIONS
-        val extractedPositions: MutableList<List<Double>> = mutableListOf()
+        val extractedPositions: MutableList<PositionFromMarker> = mutableListOf()
         for (detectedMarker in detectedMarkers) {
             //Detect the selected marker data
             var markerData = markersConfig.find { marker ->
@@ -101,151 +101,62 @@ class GlobalPositioner(
 
                 // Retain the extracted position
                 extractedPositions.add(
-                    listOf(posArray[0], posArray[1], posArray[2], detectedMarker.distance)
+                    PositionFromMarker(
+                        markerId = markerData.id,
+                        x = posArray[0],
+                        y = posArray[1],
+                        z = posArray[2],
+                        distance = detectedMarker.distance
+                    )
                 )
             }
         }
 
 
-        //Prepare return data
-        var returnData: List<Double>? = null
-
-        // Calculate weighted average of the positions
-        if (multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_AVERAGE || multipleMarkersBehaviour == MultipleMarkersBehaviour.AVERAGE) {
-            returnData = getAveragePosition(
-                extractedPositions,
-                multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_AVERAGE
-            )
-        }
-        // Calculate median of the positions
-        else if (multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_MEDIAN || multipleMarkersBehaviour == MultipleMarkersBehaviour.MEDIAN) {
-            returnData = getMedianPosition(
-                extractedPositions,
-                multipleMarkersBehaviour == MultipleMarkersBehaviour.WEIGHTED_MEDIAN
-            )
-        }
-        else {
-            // Return the closest position
-            returnData = extractedPositions.firstOrNull()
-        }
+        //Filter data
+        var returnData = filterPositionList(extractedPositions, multipleMarkersBehaviour, ransacThreshold)
 
         if (returnData == null) {
             return null
         }
-        return Pair(detectedMarkers.size, returnData)
+
+        return Pair(returnData, extractedPositions)
     }
 
-    /**
-     * Calculate the average (arithmetic or weighted) of the positions based on their distances.
-     * @param positions List of positions, each position is a list of [x, y, z, distance]
-     * @param weightedAverage Indicates whether the average must be calculated weighted or arithmetic
-     * @return Average position as a list of [x, y, z] or null if no valid positions are provided.
-     */
-    private fun getAveragePosition(
-        positions: List<List<Double>>,
-        weightedAverage: Boolean = true,
-    ): List<Double>? {
+    fun filterPositionList(positions: List<PositionFromMarker>, arithmeticFilteringMode: MultipleMarkersBehaviour, ransacThreshold: Double = 0.2): Position?{
+        //Prepare return data
+        var returnData: Position? = null
 
-        if (positions.isEmpty()) return null
+        // -- RANSAC FILTERING
+        var positions = ransacFilterPositions(positions, ransacThreshold)
 
-        var x = 0.0
-        var y = 0.0
-        var z = 0.0
-        var totalWeight = 0.0
 
-        for (position in positions) {
-            // position[0] = x, [1] = y, [2] = z, [3] = distancia
+        // -- ARITHMETIC FILTERING
 
-            val distance = if (weightedAverage) position.getOrNull(3) ?: continue else 1.0
-
-            if (distance <= 0.0) continue // evita división por 0 o distancias inválidas
-
-            val weight = 1.0 / (distance * distance)
-
-            x += position[0] * weight
-            y += position[1] * weight
-            z += position[2] * weight
-            totalWeight += weight
+        // Calculate weighted average of the positions
+        if (arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_AVERAGE || arithmeticFilteringMode == MultipleMarkersBehaviour.AVERAGE) {
+            returnData = calculateAveragePosition(
+                positions,
+                arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_AVERAGE
+            )
+        }
+        // Calculate median of the positions
+        else if (arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_MEDIAN || arithmeticFilteringMode == MultipleMarkersBehaviour.MEDIAN) {
+            returnData = calculateMedianPosition(
+                positions,
+                arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_MEDIAN
+            )
+        } else {
+            // Return the closest position
+            returnData = positions.firstOrNull()
         }
 
-        // Si no se acumuló peso (ninguna posición válida), evita NaN
-        if (totalWeight == 0.0) return listOf(0.0, 0.0, 0.0)
-
-        return listOf(
-            x / totalWeight,
-            y / totalWeight,
-            z / totalWeight
-        )
-    }
-}
-
-/**
- * Calculates the weighted or simple median of positions in the X, Y, and Z axes.
- *
- * @param positions List of positions, where each position is a list of [x, y, z, distance].
- * @param useWeighted Indicates whether to use the distance as a weight for calculating the weighted median.
- * @return A list with the medians of the axes [medianX, medianY, medianZ], or [0.0, 0.0, 0.0] if no valid data is provided.
- */
-private fun getMedianPosition(
-    positions: List<List<Double>>,
-    useWeighted: Boolean = true,
-): List<Double>? {
-
-    if (positions.isEmpty()) return null
-
-    // Lists to store pairs of values and weights for each axis
-    val xList = mutableListOf<Pair<Double, Double>>() // Pair(value, weight)
-    val yList = mutableListOf<Pair<Double, Double>>()
-    val zList = mutableListOf<Pair<Double, Double>>()
-
-    for (position in positions) {
-        // Calculate the weight based on the distance, or use uniform weight if not weighted
-        val distance = if (useWeighted) position.getOrNull(3) ?: continue else 1.0
-        if (distance <= 0.0) continue // Avoid invalid distances or division by 0
-
-        val weight = 1.0 / (distance * distance)
-        xList.add(position[0] to weight)
-        yList.add(position[1] to weight)
-        zList.add(position[2] to weight)
+        return returnData
     }
 
-    // If no valid data, return a default position
-    if (xList.isEmpty()) return listOf(0.0, 0.0, 0.0)
 
-    // Calculate the weighted median for each axis
-    return listOf(
-        weightedMedianPosition(xList),
-        weightedMedianPosition(yList),
-        weightedMedianPosition(zList)
-    )
 }
 
-/**
- * Calculates the weighted median of a list of pairs (value, weight).
- *
- * @param data A list of pairs where the first element is the value and the second is the weight.
- * @return The value corresponding to the weighted median.
- *
- * The method works as follows:
- * 1. Sorts the list of pairs by the value (first element of the pair).
- * 2. Computes the total weight by summing up all the weights (second element of the pair).
- * 3. Iterates through the sorted list, accumulating the weights.
- * 4. Returns the value when the cumulative weight reaches or exceeds half of the total weight.
- * 5. If no value is found during the iteration (unlikely), it returns the last value in the sorted list as a fallback.
- */
-private fun weightedMedianPosition(data: List<Pair<Double, Double>>): Double {
-    val sorted = data.sortedBy { it.first }
-    val totalWeight = sorted.sumOf { it.second }
-    var cumulativeWeight = 0.0
-
-    for ((value, weight) in sorted) {
-        cumulativeWeight += weight
-        if (cumulativeWeight >= totalWeight / 2) {
-            return value
-        }
-    }
-    return sorted.last().first // fallback, shouldn't happen
-}
 
 
 enum class MultipleMarkersBehaviour {
