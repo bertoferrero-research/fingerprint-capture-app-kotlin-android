@@ -1,5 +1,6 @@
 package com.bertoferrero.fingerprintcaptureapp.views.testscreens
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -41,6 +42,7 @@ import org.opencv.android.Utils
 import org.opencv.core.Mat
 import org.opencv.imgcodecs.Imgcodecs
 import androidx.core.graphics.createBitmap
+import com.bertoferrero.fingerprintcaptureapp.lib.MatFromFile
 import java.io.File
 import java.io.FileOutputStream
 
@@ -85,6 +87,7 @@ class TestPositioningRotationScreen : Screen {
     }
 
 
+    @SuppressLint("NewApi")
     @Composable
     fun RenderSettingsScreen(viewModel: TestPositioningRotationViewModel) {
         val context = LocalContext.current
@@ -135,6 +138,26 @@ class TestPositioningRotationScreen : Screen {
                             CvCameraViewFrameMockFromImage(bytes)
                         viewModel.cameraController.testingVideoFrame = null
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        val imageMatFileChooser = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { fileUri: Uri? ->
+            fileUri?.let {
+
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    inputStream?.let{
+                        val mat = MatFromFile(it)
+                        viewModel.cameraController.testingImageFrame =
+                            CvCameraViewFrameMockFromImage(mat)
+                        viewModel.cameraController.testingVideoFrame = null
+                    }
+                    inputStream?.close()
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -239,14 +262,14 @@ class TestPositioningRotationScreen : Screen {
                     SimpleDropdownMenu(
                         label = "Source type",
                         values = arrayOf<String>("live", "image", "video"),
-                        options = arrayOf("Live camera", "Image", "Video"),
+                        options = arrayOf("Live camera", "MAT Image", "Video"),
                         onOptionSelected = {
                             when (it) {
                                 "live" -> {
                                     viewModel.cameraController.testingImageFrame = null
                                     viewModel.cameraController.testingVideoFrame = null
                                 }
-                                "image" -> imageFileChooser.launch(arrayOf("image/*"))
+                                "image" -> imageMatFileChooser.launch(arrayOf("application/octet-stream"))
                                 "video" -> videoFileChooser.launch(arrayOf("video/*"))
                             }
                         },

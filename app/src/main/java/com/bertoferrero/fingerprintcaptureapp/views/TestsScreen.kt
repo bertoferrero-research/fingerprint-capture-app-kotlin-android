@@ -18,6 +18,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
+import com.bertoferrero.fingerprintcaptureapp.views.settings.CameraSamplerScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestDistanceScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningRotationScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningTrilaterationScreen
@@ -42,7 +43,14 @@ class TestsScreen : Screen {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-
+                    Button(
+                        onClick = {
+                            navigator.push(CameraSamplerScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Camera Sampler")
+                    }
                     Button(
                         onClick = {
                             navigator.push(TestDistanceScreen())
