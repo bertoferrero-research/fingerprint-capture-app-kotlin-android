@@ -115,6 +115,7 @@ class TestPositioningRotationViewModel : ViewModel() {
             "execution_id",
             "multipleMarkersBehaviour",
             "amountMarkersEmployed",
+            "RT_ransac_threshold",
             "kalmanQ",
             "kalmanR",
             "rawX", "rawY", "rawZ",
@@ -128,11 +129,12 @@ class TestPositioningRotationViewModel : ViewModel() {
                 executionId,
                 sample.multipleMarkersBehaviour.name,
                 sample.amountMarkersEmployed,
+                cameraController.ransacThreshold,
                 sample.kalmanQ,
                 sample.kalmanR,
                 sample.rawX, sample.rawY, sample.rawZ,
                 sample.kalmanX, sample.kalmanY, sample.kalmanZ,
-                sample.markersEmployed.toString()
+                "\"${sample.markersEmployed}\""
             ).joinToString(",")
         }
 

@@ -221,7 +221,7 @@ class TestPositioningRotationScreen : Screen {
                     NumberField<Double>(
                         value = viewModel.cameraController.ransacThreshold,
                         onValueChange = { viewModel.cameraController.ransacThreshold = it },
-                        label = { Text("RT - Ransac Threshold") }
+                        label = { Text("RT - Ransac Threshold, 0 = disabled") }
                     )
 
                     NumberField<Double>(

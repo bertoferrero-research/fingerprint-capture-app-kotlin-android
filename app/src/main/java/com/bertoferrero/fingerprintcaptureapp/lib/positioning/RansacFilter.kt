@@ -10,8 +10,9 @@ import kotlin.math.sqrt
  * @return A filtered list of positions containing only the inliers. Returns an empty list if no sufficient inliers are found.
  */
 fun ransacFilterPositions(positions: List<PositionFromMarker>, threshold: Double = 0.2): List<PositionFromMarker> {
-    //TODO documentar y sacar notas a mapa mental
-    //TODO parametrizar
+    if(threshold <= 0){
+        return positions
+    }
 
     // If the list has 2 or fewer positions, return it as is (no filtering needed)
     if (positions.size <= 2) {
