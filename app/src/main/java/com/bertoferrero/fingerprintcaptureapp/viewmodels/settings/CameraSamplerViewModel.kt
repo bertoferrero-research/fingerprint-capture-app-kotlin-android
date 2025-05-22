@@ -26,6 +26,14 @@ class CameraSamplerViewModel(
     var outputFolderUri: Uri? = null
         private set
 
+    // Tipo de captura: "photo" o "video"
+    var captureType by mutableStateOf("photo")
+        private set
+
+    fun setCaptureType(type: String) {
+        captureType = type
+    }
+
     fun startProcess() {
         isRunning = true
         cameraSamplerController = CameraSamplerController()

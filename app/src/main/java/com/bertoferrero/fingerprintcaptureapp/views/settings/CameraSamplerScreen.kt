@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -91,6 +92,15 @@ class CameraSamplerScreen : Screen {
                     label = { Text("Capture delay (ms)") }
                 )
 
+                // Selector tipo de captura con SimpleDropdownMenu
+                SimpleDropdownMenu(
+                    label = "Tipo de captura",
+                    values = arrayOf("photo", "video"),
+                    options = arrayOf("Photo", "Video"),
+                    selectedValue = viewModel.captureType,
+                    onOptionSelected = { viewModel.setCaptureType(it) }
+                )
+
                 Button(onClick = { folderPickerLauncher.launch(null) }) {
                     Text("Pickup output folder")
                 }
@@ -112,16 +122,27 @@ class CameraSamplerScreen : Screen {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = {
-                        viewModel.takeSample()
-                    }) {
-                    Text(
-                        modifier = Modifier.padding(10.dp, 10.dp),
-                        text = "Capture sample"
-                    )
+                when (viewModel.captureType) {
+                    "photo" -> FloatingActionButton(
+                        onClick = { viewModel.takeSample() }
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(10.dp, 10.dp),
+                            text = "Capture sample"
+                        )
+                    }
+                    "video" -> FloatingActionButton(
+                        onClick = { /* TODO: detener captura de video */ }
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(10.dp, 10.dp),
+                            text = "Detener captura"
+                        )
+                    }
+                    else -> {}
                 }
-            }) { innerPadding ->
+            }
+        ) { innerPadding ->
 
             OpenCvCamera(
                 object :
