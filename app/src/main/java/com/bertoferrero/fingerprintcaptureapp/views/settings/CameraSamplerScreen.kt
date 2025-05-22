@@ -118,6 +118,9 @@ class CameraSamplerScreen : Screen {
     @Composable
     fun RenderCalibratingScreen(viewModel: CameraSamplerViewModel) {
         val context = LocalContext.current
+        var cameraWidth = 0
+        var cameraHeight = 0
+        var cameraFps = 30.0
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -132,7 +135,7 @@ class CameraSamplerScreen : Screen {
                         )
                     }
                     "video" -> FloatingActionButton(
-                        onClick = { /* TODO: detener captura de video */ }
+                        onClick = { viewModel.stopProcess() }
                     ) {
                         Text(
                             modifier = Modifier.padding(10.dp, 10.dp),
@@ -152,6 +155,11 @@ class CameraSamplerScreen : Screen {
                     }
 
                     override fun onCameraViewStarted(width: Int, height: Int) {
+                        cameraWidth = width
+                        cameraHeight = height
+                        if (viewModel.captureType == "video" && !viewModel.isRunning) {
+                            viewModel.startProcess(width, height, cameraFps)
+                        }
                     }
 
                     override fun onCameraViewStopped() {
