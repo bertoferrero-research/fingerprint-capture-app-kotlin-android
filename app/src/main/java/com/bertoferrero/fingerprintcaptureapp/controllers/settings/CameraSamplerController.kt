@@ -9,35 +9,132 @@ import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
 import org.opencv.imgcodecs.Imgcodecs
+import org.opencv.videoio.VideoWriter
+import org.opencv.videoio.Videoio
+import java.io.File
 
+// CameraSamplerController handles the logic for capturing and saving samples from the camera.
+// It supports both photo and video capture using OpenCV. Video is encoded using OpenCV's VideoWriter.
 class CameraSamplerController(
 )  {
+    // VideoWriter instance for encoding video frames
+    private var videoWriter: VideoWriter? = null
+    // Indicates if video recording is currently active
+    private var isRecording: Boolean = false
+    // Temporary file where video is written before moving to final destination
+    private var videoFile: File? = null
+    // Frames per second for video recording
+    private var fps: Double = 30.0
+    // Frame size for the video (width x height)
+    private var frameSize: org.opencv.core.Size? = null
 
+    /**
+     * Starts video recording. Initializes the VideoWriter and prepares a temporary file for output.
+     * The video will be saved in the directory selected by the user after recording stops.
+     * @param context Android context
+     * @param outputFolderUri URI of the output directory
+     * @param width Frame width
+     * @param height Frame height
+     * @param fps Frames per second (default 30)
+     */
+    fun startVideoRecording(context: Context, outputFolderUri: Uri, width: Int, height: Int, fps: Double = 30.0) {
+        if (isRecording) return // Prevent double initialization
+        this.fps = fps
+        this.frameSize = org.opencv.core.Size(width.toDouble(), height.toDouble())
+        val folder = DocumentFile.fromTreeUri(context, outputFolderUri)
+        val timestamp = System.currentTimeMillis()
+        val fileName = "$timestamp.mp4"
+        val newFile = folder?.createFile("video/mp4", fileName)
+        val fileUri = newFile?.uri ?: return
+        // Create a temporary file in cache directory for writing video
+        val tempFile = File(context.cacheDir, fileName)
+        videoFile = tempFile
+        // Initialize OpenCV VideoWriter with H264/AVC1 codec
+        videoWriter = VideoWriter(
+            tempFile.absolutePath,
+            VideoWriter.fourcc('a'.toByte(), 'v'.toByte(), 'c'.toByte(), '1'.toByte()), // H264/AVC1
+            fps,
+            frameSize,
+            true
+        )
+        isRecording = true
+    }
+
+    /**
+     * Writes a frame to the video file if recording is active.
+     * @param mat Frame to write (should match the initialized frame size)
+     */
+    fun writeVideoFrame(mat: Mat) {
+        if (isRecording && videoWriter != null && mat.width() > 0 && mat.height() > 0) {
+            videoWriter?.write(mat)
+        }
+    }
+
+    /**
+     * Stops video recording, releases the VideoWriter, and moves the temporary file to the user-selected directory.
+     * @param context Android context
+     * @param outputFolderUri URI of the output directory
+     */
+    fun stopVideoRecording(context: Context, outputFolderUri: Uri) {
+        if (!isRecording) return
+        videoWriter?.release()
+        videoWriter = null
+        isRecording = false
+        // Move the temporary file to the final destination in the selected folder
+        videoFile?.let { tempFile ->
+            val folder = DocumentFile.fromTreeUri(context, outputFolderUri)
+            val newFile = folder?.createFile("video/mp4", tempFile.name ?: "video.mp4")
+            newFile?.uri?.let { fileUri ->
+                context.contentResolver.openOutputStream(fileUri)?.use { out ->
+                    tempFile.inputStream().use { input ->
+                        input.copyTo(out)
+                    }
+                }
+            }
+            tempFile.delete()
+        }
+        videoFile = null
+    }
+
+    /**
+     * Processes a camera frame. If in video mode, writes the frame to the video file.
+     * If in photo mode, saves the frame as a .mat file and a JPEG preview.
+     * @param inputFrame The camera frame
+     * @param context Android context
+     * @param outputFolderUri Output directory
+     * @param isVideo True if in video mode, false for photo
+     * @return The processed frame (for display)
+     */
     fun processAndStoreSampleFrame(
         inputFrame: CameraBridgeViewBase.CvCameraViewFrame?,
         context: Context,
-        outputFolderUri: Uri
+        outputFolderUri: Uri,
+        isVideo: Boolean = false
     ): Mat {
-
-        // Get the mat
+        // Get the color frame (RGBA)
         val frame = inputFrame?.rgba() ?: Mat()
         val gray = inputFrame?.gray()
 
-        // Store the sample
-        //val matToStore = MatSerialization.Companion.SerializeFromMat(rgb)
+        if (isVideo) {
+            // Write frame to video if recording
+            writeVideoFrame(frame)
+            return frame
+        }
+
+        // --- Photo mode: save .mat and JPEG preview ---
         val folder = DocumentFile.fromTreeUri(context, outputFolderUri!!)
         val timestamp = System.currentTimeMillis()
         val fileName = "$timestamp.matphoto"
 
+        // Save the frame as a .mat file
         val newFile = folder?.createFile("application/octet-stream", fileName)
         newFile?.uri?.let { fileUri ->
             context.contentResolver.openOutputStream(fileUri)?.use { out ->
-                //out.write(matToStore.toByteArray())
                 MatToFile(frame, out)
             }
         }
 
-        //Store a jpg version
+        // Save a JPEG preview of the grayscale image
         val jpgMat = MatOfByte()
         Imgcodecs.imencode(".jpg", gray, jpgMat)
         val jpgFile = folder?.createFile("image/jpeg", "${timestamp}_preview.jpg")
@@ -47,9 +144,7 @@ class CameraSamplerController(
             }
         }
 
-
         return frame
     }
-
 
 }

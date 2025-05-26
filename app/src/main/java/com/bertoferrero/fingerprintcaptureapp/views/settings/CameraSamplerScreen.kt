@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -91,6 +92,15 @@ class CameraSamplerScreen : Screen {
                     label = { Text("Capture delay (ms)") }
                 )
 
+                // Selector tipo de captura con SimpleDropdownMenu
+                SimpleDropdownMenu(
+                    label = "Tipo de captura",
+                    values = arrayOf("photo", "video"),
+                    options = arrayOf("Photo", "Video"),
+                    selectedValue = viewModel.captureType,
+                    onOptionSelected = { viewModel.setCaptureType(it) }
+                )
+
                 Button(onClick = { folderPickerLauncher.launch(null) }) {
                     Text("Pickup output folder")
                 }
@@ -108,20 +118,34 @@ class CameraSamplerScreen : Screen {
     @Composable
     fun RenderCalibratingScreen(viewModel: CameraSamplerViewModel) {
         val context = LocalContext.current
+        var cameraWidth = 0
+        var cameraHeight = 0
+        var cameraFps = 30.0
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = {
-                        viewModel.takeSample()
-                    }) {
-                    Text(
-                        modifier = Modifier.padding(10.dp, 10.dp),
-                        text = "Capture sample"
-                    )
+                when (viewModel.captureType) {
+                    "photo" -> FloatingActionButton(
+                        onClick = { viewModel.takeSample() }
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(10.dp, 10.dp),
+                            text = "Capture sample"
+                        )
+                    }
+                    "video" -> FloatingActionButton(
+                        onClick = { viewModel.stopProcess() }
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(10.dp, 10.dp),
+                            text = "Detener captura"
+                        )
+                    }
+                    else -> {}
                 }
-            }) { innerPadding ->
+            }
+        ) { innerPadding ->
 
             OpenCvCamera(
                 object :
@@ -131,6 +155,11 @@ class CameraSamplerScreen : Screen {
                     }
 
                     override fun onCameraViewStarted(width: Int, height: Int) {
+                        cameraWidth = width
+                        cameraHeight = height
+                        if (viewModel.captureType == "video" && !viewModel.isRunning) {
+                            viewModel.startProcess(width, height, cameraFps)
+                        }
                     }
 
                     override fun onCameraViewStopped() {
