@@ -2,7 +2,9 @@ package com.bertoferrero.fingerprintcaptureapp.viewmodels.settings
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -12,10 +14,11 @@ import org.opencv.core.Mat
 import kotlin.concurrent.schedule
 
 class CameraSamplerViewModel(
-    var initDelay: Long = 0
 ): ViewModel() {
 
     //UI
+
+    var initDelay by mutableLongStateOf(0)
 
     var isRunning by mutableStateOf(false)
         private set
@@ -81,6 +84,8 @@ class CameraSamplerViewModel(
             context,
             outputFolderUri!!
         )
+
+        Toast.makeText(context, "Sample captured", Toast.LENGTH_SHORT).show()
 
         return frame
     }

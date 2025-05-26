@@ -26,6 +26,7 @@ fun <T : Number>NumberField(
         else {
             val newValue = when (value) {
                 is Double -> it.toDoubleOrNull()
+                is Long -> it.toLongOrNull()
                 is Float -> it.toFloatOrNull()
                 is Int -> it.toIntOrNull()
                 else -> null
