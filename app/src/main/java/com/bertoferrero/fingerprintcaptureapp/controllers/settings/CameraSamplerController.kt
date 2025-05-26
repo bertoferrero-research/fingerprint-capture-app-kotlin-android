@@ -41,22 +41,53 @@ class CameraSamplerController(
         if (isRecording) return // Prevent double initialization
         this.fps = fps
         this.frameSize = org.opencv.core.Size(width.toDouble(), height.toDouble())
+
+        // Ensure cache directory exists
+        val cacheDir = context.cacheDir
+        if (!cacheDir.exists()) {
+            cacheDir.mkdirs()
+        }
+
         val folder = DocumentFile.fromTreeUri(context, outputFolderUri)
         val timestamp = System.currentTimeMillis()
-        val fileName = "$timestamp.mp4"
+        val fileName = "video_$timestamp.mp4"
         val newFile = folder?.createFile("video/mp4", fileName)
         val fileUri = newFile?.uri ?: return
+
         // Create a temporary file in cache directory for writing video
-        val tempFile = File(context.cacheDir, fileName)
+        val tempFile = File(cacheDir, fileName)
+        try {
+            if (!tempFile.exists()) {
+                tempFile.createNewFile()
+            }
+            // Verify if the file is writable
+            if (!tempFile.canWrite()) {
+                throw RuntimeException("Temporary file is not writable: ${tempFile.absolutePath}")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("Error creating or accessing temporary file: ${e.message}")
+            return
+        }
+
         videoFile = tempFile
-        // Initialize OpenCV VideoWriter with H264/AVC1 codec
+
+        // Usar solo el códec H264, ya que es el único compatible en este dispositivo
         videoWriter = VideoWriter(
             tempFile.absolutePath,
-            VideoWriter.fourcc('a'.toByte(), 'v'.toByte(), 'c'.toByte(), '1'.toByte()), // H264/AVC1
+            VideoWriter.fourcc('H','2','6','4'), // H264 codec
             fps,
             frameSize,
             true
         )
+
+        if (!videoWriter!!.isOpened) {
+            println("VideoWriter failed to open with H264 codec.")
+            videoWriter = null
+            tempFile.delete()
+            throw RuntimeException("Failed to open VideoWriter with H264 codec.")
+        }
+
         isRecording = true
     }
 
@@ -77,12 +108,13 @@ class CameraSamplerController(
      */
     fun stopVideoRecording(context: Context, outputFolderUri: Uri) {
         if (!isRecording) return
+        isRecording = false
         videoWriter?.release()
         videoWriter = null
-        isRecording = false
         // Move the temporary file to the final destination in the selected folder
         videoFile?.let { tempFile ->
             val folder = DocumentFile.fromTreeUri(context, outputFolderUri)
+            val timestamp = System.currentTimeMillis()
             val newFile = folder?.createFile("video/mp4", tempFile.name ?: "video.mp4")
             newFile?.uri?.let { fileUri ->
                 context.contentResolver.openOutputStream(fileUri)?.use { out ->
@@ -124,7 +156,7 @@ class CameraSamplerController(
         // --- Photo mode: save .mat and JPEG preview ---
         val folder = DocumentFile.fromTreeUri(context, outputFolderUri!!)
         val timestamp = System.currentTimeMillis()
-        val fileName = "$timestamp.matphoto"
+        val fileName = "photo_$timestamp.matphoto"
 
         // Save the frame as a .mat file
         val newFile = folder?.createFile("application/octet-stream", fileName)

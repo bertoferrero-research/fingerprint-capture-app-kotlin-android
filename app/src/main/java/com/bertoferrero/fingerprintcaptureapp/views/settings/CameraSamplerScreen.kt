@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -26,6 +25,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.settings.CameraSamplerViewModel
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
+import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMenu
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 
@@ -36,11 +36,12 @@ class CameraSamplerScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = viewModel<CameraSamplerViewModel>()
+        val context = LocalContext.current
 
 
         BackHandler {
             if (viewModel.isRunning) {
-                viewModel.stopProcess()
+                viewModel.stopProcess(context)
             } else {
                 navigator.pop()
             }
@@ -98,7 +99,7 @@ class CameraSamplerScreen : Screen {
                     values = arrayOf("photo", "video"),
                     options = arrayOf("Photo", "Video"),
                     selectedValue = viewModel.captureType,
-                    onOptionSelected = { viewModel.setCaptureType(it) }
+                    onOptionSelected = { viewModel.defineCaptureType(it) }
                 )
 
                 Button(onClick = { folderPickerLauncher.launch(null) }) {
@@ -118,9 +119,6 @@ class CameraSamplerScreen : Screen {
     @Composable
     fun RenderCalibratingScreen(viewModel: CameraSamplerViewModel) {
         val context = LocalContext.current
-        var cameraWidth = 0
-        var cameraHeight = 0
-        var cameraFps = 30.0
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -135,7 +133,7 @@ class CameraSamplerScreen : Screen {
                         )
                     }
                     "video" -> FloatingActionButton(
-                        onClick = { viewModel.stopProcess() }
+                        onClick = { viewModel.stopProcess(context) }
                     ) {
                         Text(
                             modifier = Modifier.padding(10.dp, 10.dp),
@@ -155,10 +153,8 @@ class CameraSamplerScreen : Screen {
                     }
 
                     override fun onCameraViewStarted(width: Int, height: Int) {
-                        cameraWidth = width
-                        cameraHeight = height
-                        if (viewModel.captureType == "video" && !viewModel.isRunning) {
-                            viewModel.startProcess(width, height, cameraFps)
+                        if (viewModel.captureType == "video" && viewModel.isRunning) {
+                            viewModel.startVideoRecording(context, width, height)
                         }
                     }
 

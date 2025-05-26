@@ -44,62 +44,51 @@ class CameraSamplerViewModel(
     /**
      * Sets the capture type (photo or video)
      */
-    fun setCaptureType(type: String) {
+    fun defineCaptureType(type: String) {
         captureType = type
     }
 
     /**
      * Starts the capture process. If video, applies the initial delay before starting recording.
-     * @param width Frame width (for video)
-     * @param height Frame height (for video)
-     * @param fps Frames per second (for video)
      */
-    fun startProcess(width: Int = 0, height: Int = 0, fps: Double = 30.0) {
+    fun startProcess() {
         isRunning = true
         cameraSamplerController = CameraSamplerController()
-        if (captureType == "video" && outputFolderUri != null && width > 0 && height > 0) {
-            videoWidth = width
-            videoHeight = height
-            videoFps = fps
-            videoStarted = false // Will be set to true after delay
-            // Apply initial delay before starting video recording
-            if (initDelay <= 0) {
-                startVideoRecordingInternal()
-            } else {
-                timer?.cancel()
-                timer = java.util.Timer()
-                // Schedule the start of video recording after the delay
-                timer?.schedule(initDelay) {
-                    startVideoRecordingInternal()
-                }
-            }
-        }
-    }
-
-    /**
-     * Internal helper to start video recording after the delay.
-     */
-    private fun startVideoRecordingInternal() {
-        videoStarted = true
-        cameraSamplerController?.startVideoRecording(
-            context = lastContext!!,
-            outputFolderUri = outputFolderUri!!,
-            width = videoWidth,
-            height = videoHeight,
-            fps = videoFps
-        )
     }
 
     /**
      * Stops the capture process. If video, stops and finalizes the video file.
      */
-    fun stopProcess() {
+    fun stopProcess(context: Context) {
         if (captureType == "video" && videoStarted && outputFolderUri != null) {
-            cameraSamplerController?.stopVideoRecording(lastContext!!, outputFolderUri!!)
+            cameraSamplerController?.stopVideoRecording(context, outputFolderUri!!)
             videoStarted = false
         }
         isRunning = false
         cameraSamplerController = null
+    }
+
+    /**
+     * Starts video recording if the process is running, video has not started yet, the capture type is set to "video",
+     * an output folder URI is available, and valid width and height are provided. This method sets the videoStarted flag to true
+     * and delegates the actual recording start to the CameraSamplerController.
+     *
+     * @param context The Android context required for file operations and permissions.
+     * @param width The width of the video to be recorded (must be > 0).
+     * @param height The height of the video to be recorded (must be > 0).
+     * @param fps The frames per second for the video recording (default is 30.0).
+     */
+    fun startVideoRecording(context: Context, width: Int = 0, height: Int = 0, fps: Double = 30.0){
+        if (isRunning && !videoStarted && captureType == "video" && outputFolderUri != null && width > 0 && height > 0) {
+            videoStarted = true
+            cameraSamplerController?.startVideoRecording(
+                context = context,
+                outputFolderUri = outputFolderUri!!,
+                width = width,
+                height = height,
+                fps = fps
+            )
+        }
     }
 
     /**
@@ -127,15 +116,6 @@ class CameraSamplerViewModel(
     // --- Video State ---
     // Indicates if video recording has started (after delay)
     private var videoStarted = false
-    // Video frame width
-    private var videoWidth = 0
-    // Video frame height
-    private var videoHeight = 0
-    // Video frames per second
-    private var videoFps = 30.0
-
-    // Last context used (needed for controller calls)
-    private var lastContext: Context? = null
 
     /**
      * Triggers a photo capture, applying the initial delay if needed.
@@ -168,7 +148,6 @@ class CameraSamplerViewModel(
      * @return The frame to display
      */
     fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?, context: Context): Mat {
-        lastContext = context
         if (!isRunning) {
             return inputFrame?.rgba() ?: Mat()
         }
