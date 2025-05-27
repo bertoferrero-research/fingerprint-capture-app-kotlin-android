@@ -219,11 +219,6 @@ class TestPositioningRotationScreen : Screen {
                             viewModel.updateArucoType(it.value)
                         }
                     )
-                    NumberField<Int>(
-                        value = cameraController.samplesLimit,
-                        onValueChange = { cameraController.samplesLimit = it },
-                        label = { Text("Samples to take (0 = unlimited)") }
-                    )
 
                     SimpleDropdownMenu(
                         label = "When multiple markers",
@@ -236,9 +231,23 @@ class TestPositioningRotationScreen : Screen {
                     )
 
                     NumberField<Int>(
+                        value = cameraController.samplesLimit,
+                        onValueChange = { cameraController.samplesLimit = it },
+                        label = { Text("Samples to take (0 = unlimited)") }
+                    )
+
+                    NumberField<Int>(
                         value = cameraController.closestMarkersUsed,
                         onValueChange = { cameraController.closestMarkersUsed = it },
-                        label = { Text("C - Number of closest markers used") }
+                        label = { Text("C - Number of closest markers used (0 = all)") }
+                    )
+
+                    NumberField<Int>(
+                        value = viewModel.cameraController.sampleSpaceMilliseconds,
+                        onValueChange = {
+                            val value = if (it >= 0) it else 0
+                            viewModel.cameraController.sampleSpaceMilliseconds = value },
+                        label = { Text("ST - Sampling Time (ms)") }
                     )
 
                     NumberField<Double>(

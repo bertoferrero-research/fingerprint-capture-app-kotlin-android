@@ -34,6 +34,7 @@ class TestPositioningRotationController(
     public var testingImageFrame: CvCameraViewFrameMockFromImage? = null,
     public var testingVideoFrame: File? = null,
     public var ransacThreshold: Double = 0.2,
+    public var sampleSpaceMilliseconds : Int = 1000,
     private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit,
 ) : ICameraController {
     // Running variables
@@ -44,6 +45,7 @@ class TestPositioningRotationController(
         private set
     public var samples: MutableList<TestPositioningRotationSample> = mutableListOf()
         private set
+    private var lastSampleTimestamp: Long? = null
 
     // Camera calibration parameters
     private var cameraMatrix: Mat
@@ -71,6 +73,7 @@ class TestPositioningRotationController(
     override fun initProcess() {
         if (!running) {
             running = true
+            lastSampleTimestamp = null
             markersDetector =
                 MarkersDetector(markerSize, arucoDictionaryType, cameraMatrix, distCoeffs)
             markersId = markersDefinition.map { it.id }
@@ -83,6 +86,7 @@ class TestPositioningRotationController(
     override fun finishProcess() {
         if (running) {
             running = false
+            lastSampleTimestamp = null
             markersDetector = null
             markersId = null
             positioner = null
@@ -128,11 +132,14 @@ class TestPositioningRotationController(
         val frame = Mat()
         var processedFrames = 0
         var droppedFrames = 0
-        val startGlobalTime = System.currentTimeMillis()
+        var startGlobalTime: Long? = null
 
         try {
             while (running) {
                 val startTime = System.currentTimeMillis()
+                if (startGlobalTime == null){
+                    startGlobalTime = startTime
+                }
 
                 val readSuccess = videoCapture.read(frame)
                 if (!readSuccess || frame.empty()) break
@@ -140,7 +147,7 @@ class TestPositioningRotationController(
                 val simulatedFrame = CvCameraViewFrameMockFromImage(frame.clone())
 
                 // Procesamiento del frame
-                val result = processFrame(simulatedFrame, startTime)
+                val result = processFrame(simulatedFrame, startTime - startGlobalTime)
                 processedFrames++
 
                 // Calcular duración del procesamiento
@@ -201,7 +208,21 @@ class TestPositioningRotationController(
         if (!running || inputFrame == null) {
             return inputFrame?.rgba() ?: Mat()
         }
-        if (samplesLimit > 0 && samples.size >= samplesLimit) {
+        //If it is not the moment of sampling, just skip
+        if(lastSampleTimestamp !== null && sampleTimestamp - lastSampleTimestamp!! < sampleSpaceMilliseconds){
+            return inputFrame.rgba()
+        }
+
+        //Define the multiple markers behaviour to implement
+        var multipleMarkersBehaviours: List<MultipleMarkersBehaviour>
+        if (multipleMarkersBehaviour == null) {
+            multipleMarkersBehaviours = MultipleMarkersBehaviour.entries
+        } else {
+            multipleMarkersBehaviours =
+                listOf(multipleMarkersBehaviour) as List<MultipleMarkersBehaviour>
+        }
+        //If there is a maximum amount of samples and we reach it, we no need to continue working
+        if (samplesLimit > 0 && samples.size >= (samplesLimit * multipleMarkersBehaviours.size)) {
             return inputFrame.rgba()
         }
 
@@ -221,14 +242,7 @@ class TestPositioningRotationController(
         val rgb = Mat()
         Imgproc.cvtColor(frame, rgb, Imgproc.COLOR_RGBA2RGB)
 
-        //Define the multuple markers behaviour to implement
-        var multipleMarkersBehaviours: List<MultipleMarkersBehaviour>
-        if (multipleMarkersBehaviour == null) {
-            multipleMarkersBehaviours = MultipleMarkersBehaviour.entries
-        } else {
-            multipleMarkersBehaviours =
-                listOf(multipleMarkersBehaviour) as List<MultipleMarkersBehaviour>
-        }
+
 
         multipleMarkersBehaviours.forEach {
             // Calculate the camera position
@@ -266,9 +280,14 @@ class TestPositioningRotationController(
                     kalmanX = posArrayFiltered[0],
                     kalmanY = posArrayFiltered[1],
                     kalmanZ = posArrayFiltered[2],
-                    markersEmployed = markersEmployed
+                    markersEmployed = markersEmployed,
+                    sampleSpaceMillis = sampleSpaceMilliseconds
                 )
             )
+            //Update the last sample timestamp
+            lastSampleTimestamp = sampleTimestamp
+
+            //If we reached the maximum sample limit, fire the event
             if (samplesLimit > 0 && samples.size >= (samplesLimit * multipleMarkersBehaviours.size)) {
                 //Remove the rows that not accomplish with the minimal markers amount required
                 /*if (closestMarkersUsed > 0) {
@@ -321,6 +340,7 @@ class TestPositioningRotationSample(
     val timestamp: Long = System.currentTimeMillis(),
     val multipleMarkersBehaviour: MultipleMarkersBehaviour,
     val amountMarkersEmployed: Int,
+    val sampleSpaceMillis: Int,
     val kalmanQ: Double,
     val kalmanR: Double,
     val rawX: Float,
