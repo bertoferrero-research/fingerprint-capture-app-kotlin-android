@@ -14,8 +14,8 @@ fun ransacFilterPositions(positions: List<PositionFromMarker>, threshold: Double
         return positions
     }
 
-    // If the list has 2 or fewer positions, return it as is (no filtering needed)
-    if (positions.size <= 2) {
+    // If the list has 1 or fewer positions, return it as is (no filtering needed)
+    if (positions.size <= 1) {
         return positions
     }
 
