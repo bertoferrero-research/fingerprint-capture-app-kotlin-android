@@ -25,7 +25,6 @@ import kotlin.math.roundToInt
 
 
 class TestPositioningRotationController(
-    public var markerSize: Float = 0.1765f,
     public var arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
     public var markersDefinition: List<MarkerDefinition> = listOf(),
     public var samplesLimit: Int = 0,
@@ -40,7 +39,6 @@ class TestPositioningRotationController(
     // Running variables
     private var running = false
     private var markersDetector: MarkersDetector? = null
-    private var markersId: List<Int>? = null
     public var kalmanFilter = PositionKalmanFilter()
         private set
     public var samples: MutableList<TestPositioningRotationSample> = mutableListOf()
@@ -75,8 +73,7 @@ class TestPositioningRotationController(
             running = true
             lastSampleTimestamp = null
             markersDetector =
-                MarkersDetector(markerSize, arucoDictionaryType, cameraMatrix, distCoeffs)
-            markersId = markersDefinition.map { it.id }
+                MarkersDetector(markersDefinition, arucoDictionaryType, cameraMatrix, distCoeffs)
             positioner = GlobalPositioner(markersDefinition)
             samples = mutableListOf()
             kalmanFilter.initProcess()
@@ -88,7 +85,6 @@ class TestPositioningRotationController(
             running = false
             lastSampleTimestamp = null
             markersDetector = null
-            markersId = null
             positioner = null
             if (testingVideoFrame != null) {
                 testingVideoFrame!!.deleteOnExit()
@@ -231,7 +227,7 @@ class TestPositioningRotationController(
         val corners: MutableList<Mat> = mutableListOf()
         val ids: Mat = Mat()
         val detectedMarkers = markersDetector!!.detectMarkers(
-            inputFrame, markersId!!, corners, ids
+            inputFrame, corners, ids
         )
         if (detectedMarkers.isEmpty()) {
             return inputFrame.rgba()

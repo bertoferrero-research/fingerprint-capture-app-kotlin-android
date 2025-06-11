@@ -16,9 +16,9 @@ class TestPositioningTrilaterationController(
     private val context: Context,
     public var markerSize: Float = 0.1765f,
     public var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
-    public var marker1: MarkerDefinition = MarkerDefinition(27, 0f, 0.552f, 1.5f),
-    public var marker2: MarkerDefinition = MarkerDefinition(3, 0f, 1.103f, 1.5f),
-    public var marker3: MarkerDefinition = MarkerDefinition(0, 0.02f, 1.97f, 1.94f),
+    public var marker1: MarkerDefinition = MarkerDefinition(27, 0f, 0.552f, 1.5f, 0.173f),
+    public var marker2: MarkerDefinition = MarkerDefinition(3, 0f, 1.103f, 1.5f, 0.173f),
+    public var marker3: MarkerDefinition = MarkerDefinition(0, 0.02f, 1.97f, 1.94f, 0.173f),
 ) : ICameraController {
     // Running variables
     private var running = false

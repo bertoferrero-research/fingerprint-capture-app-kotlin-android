@@ -10,6 +10,7 @@ package com.bertoferrero.fingerprintcaptureapp.models
 class MarkerDefinition(
     public var id: Int,
     public var position: MarkerPosition,
+    public var size: Float,
     public var rotation: MarkerRotation = MarkerRotation(0f, 0f, 0f)
 ) {
 
@@ -26,7 +27,8 @@ class MarkerDefinition(
         x: Float,
         y: Float,
         z: Float,
-    ) : this(id, MarkerPosition(x, y, z))
+        size: Float
+    ) : this(id, MarkerPosition(x, y, z), size)
 
     /**
      * Legacy property x that gets or sets the x-coordinate of the position.

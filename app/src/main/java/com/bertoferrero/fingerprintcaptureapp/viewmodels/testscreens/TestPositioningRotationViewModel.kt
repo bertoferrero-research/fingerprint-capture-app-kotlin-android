@@ -20,7 +20,6 @@ class TestPositioningRotationViewModel : ViewModel() {
 
     val settingsManager = SettingsParametersManager()
     val cameraController = TestPositioningRotationController(
-        settingsManager.markerSize,
         settingsManager.arucoDictionaryType,
         onSamplesLimitReached = ::onSamplesLimitReached
     )
@@ -69,11 +68,6 @@ class TestPositioningRotationViewModel : ViewModel() {
     fun stopTest() {
         cameraController.finishProcess()
         isRunning = false
-    }
-
-    fun updateMarkerSize(size: Float) {
-        settingsManager.markerSize = size
-        cameraController.markerSize = size
     }
 
     fun updateArucoType(type: Int) {

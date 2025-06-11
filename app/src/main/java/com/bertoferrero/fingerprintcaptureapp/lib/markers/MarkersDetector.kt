@@ -1,5 +1,6 @@
 package com.bertoferrero.fingerprintcaptureapp.lib.markers
 
+import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.calib3d.Calib3d
 import org.opencv.core.Mat
@@ -18,7 +19,7 @@ import kotlin.math.sqrt
  * This class employs the focal length of the camera to estimate the distance to the markers instead of using the camera matrix and distortion coefficients.
  */
 class MarkersDetector(
-    var markerSize: Float,
+    var markerDefinition: List<MarkerDefinition>,
     private val arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
     private val cameraMatrix: Mat,
     private val distCoeffs: Mat
@@ -32,12 +33,28 @@ class MarkersDetector(
         DetectorParameters()
     )
 
-    private val objectPoints = MatOfPoint3f(
-        Point3(-(markerSize / 2.0), (markerSize / 2.0), 0.0),
-        Point3((markerSize / 2.0), (markerSize / 2.0), 0.0),
-        Point3((markerSize / 2.0), -(markerSize / 2.0), 0.0),
-        Point3(-(markerSize / 2.0), -(markerSize / 2.0), 0.0)
-    )
+    /**
+     * Marker size map indexed by marker ID.
+     */
+    private val markerSizeMap = markerDefinition.associateBy({ it.id }, { it.size })
+
+    /**
+     * Markers ID to be detected.
+     */
+    private val markersId = markerDefinition.map { it.id }
+
+    /**
+     * Object points for the markers, calculated based on the marker size.
+     */
+    private fun getObjectPoints( markerId: Int): MatOfPoint3f {
+        val size = markerSizeMap[markerId] ?: throw IllegalArgumentException("Marker ID $markerId not found in marker definitions.")
+        return MatOfPoint3f(
+            Point3(-(size / 2.0), (size / 2.0), 0.0),
+            Point3((size / 2.0), (size / 2.0), 0.0),
+            Point3((size / 2.0), -(size / 2.0), 0.0),
+            Point3(-(size / 2.0), -(size / 2.0), 0.0)
+        )
+    }
 
     /**
      * Detects markers in the input frame and returns the detected markers with their distance.
@@ -45,7 +62,6 @@ class MarkersDetector(
      */
     fun detectMarkers(
         inputFrame: CameraBridgeViewBase.CvCameraViewFrame,
-        filterIds : List<Int> = listOf(),
         outputCorners: MutableList<Mat>? = null,
         outputIds: Mat? = null,
     ): MutableList<MarkersInFrame> {
@@ -81,7 +97,7 @@ class MarkersDetector(
                     continue
                 }
                 var markerId = ids[i, 0][0].toInt()
-                if (filterIds.isNotEmpty() && !filterIds.contains(markerId)) {
+                if (!markersId.contains(markerId)) {
                     continue
                 }
 
@@ -95,7 +111,7 @@ class MarkersDetector(
 
                     // Estimate the pose
                     Calib3d.solvePnP(
-                        objectPoints,
+                        getObjectPoints(markerId),
                         cornerMatOfPoint2f,
                         cameraMatrix,
                         disctCoeffsMatOfDouble,

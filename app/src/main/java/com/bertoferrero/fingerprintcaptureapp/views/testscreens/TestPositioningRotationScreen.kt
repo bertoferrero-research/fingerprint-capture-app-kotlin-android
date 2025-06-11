@@ -208,11 +208,6 @@ class TestPositioningRotationScreen : Screen {
                 verticalArrangement = Arrangement.Center
             ) {
                 item {
-                    NumberField<Float>(
-                        value = cameraController.markerSize,
-                        onValueChange = viewModel::updateMarkerSize,
-                        label = { Text("Marker size (m)") }
-                    )
                     ArucoTypeDropdownMenu(
                         selectedArucoType = ArucoDictionaryType.fromInt(cameraController.arucoDictionaryType)!!,
                         onArucoTypeSelected = {
