@@ -1,4 +1,4 @@
-package com.bertoferrero.fingerprintcaptureapp.lib
+package com.bertoferrero.fingerprintcaptureapp.lib.opencv
 
 import org.opencv.core.Mat
 import com.google.gson.Gson

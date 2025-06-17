@@ -1,7 +1,7 @@
 package com.bertoferrero.fingerprintcaptureapp.models
 
 import android.content.SharedPreferences
-import com.bertoferrero.fingerprintcaptureapp.lib.MatSerialization
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatSerialization
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Scalar

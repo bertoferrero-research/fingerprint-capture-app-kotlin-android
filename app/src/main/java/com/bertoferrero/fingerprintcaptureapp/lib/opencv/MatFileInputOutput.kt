@@ -1,4 +1,4 @@
-package com.bertoferrero.fingerprintcaptureapp.lib
+package com.bertoferrero.fingerprintcaptureapp.lib.opencv
 
 import android.os.Build
 import androidx.annotation.RequiresApi

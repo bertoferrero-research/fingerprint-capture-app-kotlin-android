@@ -3,14 +3,12 @@ package com.bertoferrero.fingerprintcaptureapp.controllers.settings
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
-import com.bertoferrero.fingerprintcaptureapp.lib.MatSerialization
-import com.bertoferrero.fingerprintcaptureapp.lib.MatToFile
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatToFile
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.videoio.VideoWriter
-import org.opencv.videoio.Videoio
 import java.io.File
 
 // CameraSamplerController handles the logic for capturing and saving samples from the camera.

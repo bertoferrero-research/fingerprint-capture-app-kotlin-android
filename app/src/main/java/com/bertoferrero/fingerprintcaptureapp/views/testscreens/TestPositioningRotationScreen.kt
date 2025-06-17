@@ -40,9 +40,8 @@ import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMen
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.android.Utils
 import org.opencv.core.Mat
-import org.opencv.imgcodecs.Imgcodecs
 import androidx.core.graphics.createBitmap
-import com.bertoferrero.fingerprintcaptureapp.lib.MatFromFile
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatFromFile
 import java.io.File
 import java.io.FileOutputStream
 

@@ -1,6 +1,9 @@
 package com.bertoferrero.fingerprintcaptureapp.views.capture
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
@@ -19,12 +22,14 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -46,18 +51,30 @@ class OfflineCaptureScreen : Screen {
         val context = LocalContext.current
         val viewModel = viewModel<OfflineCaptureViewModel>()
         val isRunning = viewModel.isRunning
-        val pendingSave = viewModel.pendingSamplesToSave
 
-        LaunchedEffect(pendingSave) {
-            if (pendingSave) {
-                viewModel.saveCaptureFile(context)
-                Toast.makeText(context, "Capture file saved", Toast.LENGTH_SHORT).show()
+        // Registrar un BroadcastReceiver para notificar cuando se guarde el archivo
+        DisposableEffect(Unit) {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    if (intent?.action == "com.bertoferrero.fingerprintcaptureapp.SAVE_COMPLETE") {
+                        Toast.makeText(context, "Capture file saved", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            ContextCompat.registerReceiver(
+                context,
+                receiver,
+                IntentFilter("com.bertoferrero.fingerprintcaptureapp.SAVE_COMPLETE"),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            onDispose {
+                context.unregisterReceiver(receiver)
             }
         }
 
         BackHandler {
             if (isRunning) {
-                viewModel.stopCapture()
+                viewModel.stopCapture(context)
             } else {
                 navigator.pop()
             }
@@ -66,7 +83,7 @@ class OfflineCaptureScreen : Screen {
             if (!isRunning) {
                 RenderSettingsScreen(viewModel)
             } else {
-                RenderRunningContent(viewModel)
+                RenderRunningContent(viewModel, context)
             }
         }
     }
@@ -185,13 +202,12 @@ class OfflineCaptureScreen : Screen {
     }
 
     @Composable
-    fun RenderRunningContent(viewModel: OfflineCaptureViewModel) {
-
+    fun RenderRunningContent(viewModel: OfflineCaptureViewModel, context: Context) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = viewModel::stopCapture
+                    onClick = { viewModel.stopCapture(context) }
                 ) {
                     Text(modifier = Modifier.padding(10.dp), text = "Finish test")
                 }
