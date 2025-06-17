@@ -34,7 +34,6 @@ class OfflineCaptureViewModel(
         private set
 
     var capturedSamplesCounter by mutableIntStateOf(0)
-        private set
 
     var initButtonEnabled by mutableStateOf(false)
         private set

@@ -52,20 +52,32 @@ class OfflineCaptureScreen : Screen {
         val viewModel = viewModel<OfflineCaptureViewModel>()
         val isRunning = viewModel.isRunning
 
-        // Registrar un BroadcastReceiver para notificar cuando se guarde el archivo
+        // Registrar un BroadcastReceiver para notificar cuando se guarde el archivo o termine la captura
         DisposableEffect(Unit) {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
-                    if (intent?.action == "com.bertoferrero.fingerprintcaptureapp.SAVE_COMPLETE") {
-                        Toast.makeText(context, "Capture file saved", Toast.LENGTH_SHORT).show()
+                    when (intent?.action) {
+                        "com.bertoferrero.fingerprintcaptureapp.captureservice.SAVE_COMPLETE" -> {
+                            Toast.makeText(context, "Capture file saved", Toast.LENGTH_SHORT).show()
+                        }
+                        "com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED" -> {
+                            viewModel.stopCapture(context!!)
+                        }
+                        "com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED" -> {
+                            viewModel.capturedSamplesCounter = intent.getIntExtra("capturedSamples", 0)
+                        }
                     }
                 }
             }
             ContextCompat.registerReceiver(
                 context,
                 receiver,
-                IntentFilter("com.bertoferrero.fingerprintcaptureapp.SAVE_COMPLETE"),
-                ContextCompat.RECEIVER_NOT_EXPORTED
+                IntentFilter().apply {
+                    addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.SAVE_COMPLETE")
+                    addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED")
+                    addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED")
+                },
+                ContextCompat.RECEIVER_EXPORTED
             )
             onDispose {
                 context.unregisterReceiver(receiver)

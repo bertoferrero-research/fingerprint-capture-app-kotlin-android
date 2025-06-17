@@ -31,18 +31,25 @@ class OfflineCaptureService : Service() {
         const val EXTRA_OUTPUT_FOLDER_URI = "outputFolderUri"
     }
 
+    // BLE scanner instance
     private var bleScanner: BleScanner? = null
+    // Timer for capture duration
     private var timer: Timer? = null
+    // List to store captured samples
     private var macHistory = mutableListOf<RssiSample>()
+    // Output folder URI for saving CSV
     private var outputFolderUri: Uri? = null
+    // Capture position parameters
     private var x: Float = 0f
     private var y: Float = 0f
     private var z: Float = 0f
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // Entry point when the service is started
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Retrieve parameters from intent
         x = intent?.getFloatExtra(EXTRA_X, 0f) ?: 0f
         y = intent?.getFloatExtra(EXTRA_Y, 0f) ?: 0f
         z = intent?.getFloatExtra(EXTRA_Z, 0f) ?: 0f
@@ -50,11 +57,14 @@ class OfflineCaptureService : Service() {
         val macFilterList = intent?.getStringArrayListExtra(EXTRA_MAC_FILTER_LIST) ?: arrayListOf()
         outputFolderUri = intent?.getParcelableExtra(EXTRA_OUTPUT_FOLDER_URI)
 
+        // Start as a foreground service with a persistent notification
         startForeground(NOTIFICATION_ID, createNotification())
+        // Start BLE capture process
         startBleCapture(x, y, z, minutesLimit, macFilterList)
         return START_NOT_STICKY
     }
 
+    // Create a persistent notification for the foreground service
     private fun createNotification(): Notification {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -73,6 +83,7 @@ class OfflineCaptureService : Service() {
             .build()
     }
 
+    // Start BLE scanning and handle sample collection
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     private fun startBleCapture(
         x: Float,
@@ -82,7 +93,9 @@ class OfflineCaptureService : Service() {
         macFilterList: List<String>
     ) {
         macHistory.clear()
+        // Start BLE scan with filter list
         bleScanner = BleScanner(this, macFilterList) {
+            // Add each sample to history
             macHistory.add(
                 RssiSample(
                     macAddress = it.device.address,
@@ -92,16 +105,25 @@ class OfflineCaptureService : Service() {
                     posZ = z
                 )
             )
+            // Notify UI with the number of captured samples
+            val intent = Intent("com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED")
+            intent.putExtra("capturedSamples", macHistory.size)
+            sendBroadcast(intent)
         }
         bleScanner?.startScan()
+        // If a time limit is set, schedule automatic stop
         if (minutesLimit > 0) {
             timer = Timer()
             timer?.schedule(minutesLimit * 60000L) {
+                // Notify UI that capture has finished due to timer
+                val intent = Intent("com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED")
+                sendBroadcast(intent)
                 stopSelf()
             }
         }
     }
 
+    // Clean up resources and save data when the service is destroyed
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     override fun onDestroy() {
         timer?.cancel()
@@ -111,6 +133,7 @@ class OfflineCaptureService : Service() {
         super.onDestroy()
     }
 
+    // Save captured samples to a CSV file in the selected folder
     private fun saveCaptureFile() {
         val samples = macHistory
         if (outputFolderUri == null || samples.isEmpty()) {
@@ -144,8 +167,8 @@ class OfflineCaptureService : Service() {
                 out.write(csvString.toByteArray())
             }
         }
-        // Notificar a la UI que el archivo se ha guardado
-        val intent = Intent("com.bertoferrero.fingerprintcaptureapp.SAVE_COMPLETE")
+        // Notify UI that the file has been saved
+        val intent = Intent("com.bertoferrero.fingerprintcaptureapp.captureservice.SAVE_COMPLETE")
         sendBroadcast(intent)
     }
 }
