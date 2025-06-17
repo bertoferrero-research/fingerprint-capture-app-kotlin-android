@@ -72,6 +72,7 @@ class OfflineCaptureViewModel(
     @RequiresApi(Build.VERSION_CODES.O)
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun startCapture(context: Context) {
+        capturedSamplesCounter = 0
         // Lanzar el Foreground Service con los parámetros
         val intent = Intent(context, OfflineCaptureService::class.java).apply {
             putExtra(OfflineCaptureService.EXTRA_X, x)

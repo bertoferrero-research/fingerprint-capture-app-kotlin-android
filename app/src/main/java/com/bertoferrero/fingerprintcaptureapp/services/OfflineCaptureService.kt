@@ -36,13 +36,17 @@ class OfflineCaptureService : Service() {
     // Timer for capture duration
     private var timer: Timer? = null
     // List to store captured samples
-    private var macHistory = mutableListOf<RssiSample>()
+    private var capturedSamplesCounter = 0
     // Output folder URI for saving CSV
     private var outputFolderUri: Uri? = null
     // Capture position parameters
     private var x: Float = 0f
     private var y: Float = 0f
     private var z: Float = 0f
+
+    // Output stream for writing CSV in real time
+    private var outputStream: java.io.OutputStream? = null
+    private var csvFileUri: Uri? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,6 +87,30 @@ class OfflineCaptureService : Service() {
             .build()
     }
 
+    // Open the CSV file and write the header
+    private fun openCsvFile() {
+        val folder = DocumentFile.fromTreeUri(this, outputFolderUri!!)
+        val timestamp = System.currentTimeMillis()
+        val fileName = "offlinecapture__${x}_${y}_${z}__${timestamp}.csv"
+        val newFile = folder?.createFile("text/csv", fileName)
+        csvFileUri = newFile?.uri
+        outputStream = csvFileUri?.let { contentResolver.openOutputStream(it) }
+        outputStream?.write("timestamp,mac_address,rssi,pos_x,pos_y,pos_z\n".toByteArray())
+    }
+
+    // Write a single sample to the CSV file
+    private fun writeSample(sample: RssiSample) {
+        val line = "${sample.timestamp},${sample.macAddress},${sample.rssi},${sample.posX},${sample.posY},${sample.posZ}\n"
+        outputStream?.write(line.toByteArray())
+    }
+
+    // Close the CSV file
+    private fun closeCsvFile() {
+        outputStream?.close()
+        outputStream = null
+        csvFileUri = null
+    }
+
     // Start BLE scanning and handle sample collection
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     private fun startBleCapture(
@@ -92,22 +120,21 @@ class OfflineCaptureService : Service() {
         minutesLimit: Int,
         macFilterList: List<String>
     ) {
-        macHistory.clear()
-        // Start BLE scan with filter list
+        capturedSamplesCounter = 0
+        openCsvFile() // Open file at the start
         bleScanner = BleScanner(this, macFilterList) {
-            // Add each sample to history
-            macHistory.add(
-                RssiSample(
-                    macAddress = it.device.address,
-                    rssi = it.rssi,
-                    posX = x,
-                    posY = y,
-                    posZ = z
-                )
+            val sample = RssiSample(
+                macAddress = it.device.address,
+                rssi = it.rssi,
+                posX = x,
+                posY = y,
+                posZ = z
             )
+            writeSample(sample) // Write each sample as it arrives
             // Notify UI with the number of captured samples
+            capturedSamplesCounter++
             val intent = Intent("com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED")
-            intent.putExtra("capturedSamples", macHistory.size)
+            intent.putExtra("capturedSamples", capturedSamplesCounter)
             sendBroadcast(intent)
         }
         bleScanner?.startScan()
@@ -129,46 +156,7 @@ class OfflineCaptureService : Service() {
         timer?.cancel()
         bleScanner?.stopScan()
         bleScanner = null
-        saveCaptureFile()
+        closeCsvFile() // Close file at the end
         super.onDestroy()
-    }
-
-    // Save captured samples to a CSV file in the selected folder
-    private fun saveCaptureFile() {
-        val samples = macHistory
-        if (outputFolderUri == null || samples.isEmpty()) {
-            return
-        }
-        val header = listOf(
-            "timestamp",
-            "mac_address",
-            "rssi",
-            "pos_x",
-            "pos_y",
-            "pos_z"
-        ).joinToString(",")
-        val rows = samples.map { sample ->
-            listOf(
-                sample.timestamp,
-                sample.macAddress,
-                sample.rssi,
-                sample.posX,
-                sample.posY,
-                sample.posZ
-            ).joinToString(",")
-        }
-        val csvString = (listOf(header) + rows).joinToString("\n")
-        val folder = DocumentFile.fromTreeUri(this, outputFolderUri!!)
-        val timestamp = System.currentTimeMillis()
-        val fileName = "offlinecapture__${x}_${y}_${z}__${timestamp}.csv"
-        val newFile = folder?.createFile("text/csv", fileName)
-        newFile?.uri?.let { fileUri ->
-            contentResolver.openOutputStream(fileUri)?.use { out ->
-                out.write(csvString.toByteArray())
-            }
-        }
-        // Notify UI that the file has been saved
-        val intent = Intent("com.bertoferrero.fingerprintcaptureapp.captureservice.SAVE_COMPLETE")
-        sendBroadcast(intent)
     }
 }
