@@ -57,9 +57,6 @@ class OfflineCaptureScreen : Screen {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     when (intent?.action) {
-                        "com.bertoferrero.fingerprintcaptureapp.captureservice.SAVE_COMPLETE" -> {
-                            Toast.makeText(context, "Capture file saved", Toast.LENGTH_SHORT).show()
-                        }
                         "com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED" -> {
                             viewModel.stopCapture(context!!)
                         }
@@ -73,7 +70,6 @@ class OfflineCaptureScreen : Screen {
                 context,
                 receiver,
                 IntentFilter().apply {
-                    addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.SAVE_COMPLETE")
                     addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED")
                     addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED")
                 },
