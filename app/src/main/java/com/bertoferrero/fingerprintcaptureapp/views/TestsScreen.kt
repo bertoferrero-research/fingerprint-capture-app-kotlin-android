@@ -19,6 +19,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CameraSamplerScreen
+import com.bertoferrero.fingerprintcaptureapp.views.testscreens.BatchDistanceTestScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestDistanceScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningRotationScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningTrilaterationScreen
@@ -58,6 +59,14 @@ class TestsScreen : Screen {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Distance Test")
+                    }
+                    Button(
+                        onClick = {
+                            navigator.push(BatchDistanceTestScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Batch Distance Test")
                     }
                     Button(
                         onClick = {

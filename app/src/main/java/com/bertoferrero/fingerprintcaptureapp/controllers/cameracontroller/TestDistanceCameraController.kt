@@ -100,25 +100,45 @@ class TestDistanceCameraController(
     }
 
     override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
+        
+        
+        return when (method) {
+            1 -> methodCalibration(inputFrame)
+            2 -> method2Javi(inputFrame)
+            3 -> method3JaviWithPixelRatio(inputFrame)
+            4 -> method4JaviWithHorizontalFOV(inputFrame)
+            5 -> method5JaviWithHorizontalFOV2(inputFrame)
+            6 -> method6CalculatedCameraMatrix(inputFrame)
+            else -> {
+                inputFrame?.rgba() ?: Mat()
+            }
+        }
+    }
+
+    /**
+     * TODO esto es una guarrada y debería evitarse el repetir código, como prototipo y pruebas ya nos sirve así
+     * Calculate distance from frame without generating visual output
+     * Returns the first detected marker distance or null if no markers found
+     */
+    fun calculateDistance(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Double? {
+        if (!running || inputFrame == null) {
+            return null
+        }
+
         val frameToProcess = if(testingImageFrame != null){
-            // If testingImageFrame is set, use it as the input frame
-            // This allows the controller to process a static image for testing purposes
-            // outputing the processed tested image
             testingImageFrame
         } else {
             inputFrame
         }
-        
+
         return when (method) {
-            1 -> methodCalibration(frameToProcess)
-            2 -> method2Javi(frameToProcess)
-            3 -> method3JaviWithPixelRatio(frameToProcess)
-            4 -> method4JaviWithHorizontalFOV(frameToProcess)
-            5 -> method5JaviWithHorizontalFOV2(frameToProcess)
-            6 -> method6CalculatedCameraMatrix(frameToProcess)
-            else -> {
-                frameToProcess?.rgba() ?: Mat()
-            }
+            1 -> calculateDistanceMethodCalibration(frameToProcess)
+            2 -> calculateDistanceMethod2Javi(frameToProcess)
+            3 -> calculateDistanceMethod3JaviWithPixelRatio(frameToProcess)
+            4 -> calculateDistanceMethod4JaviWithHorizontalFOV(frameToProcess)
+            5 -> calculateDistanceMethod5JaviWithHorizontalFOV2(frameToProcess)
+            6 -> calculateDistanceMethod6CalculatedCameraMatrix(frameToProcess)
+            else -> null
         }
     }
 
@@ -616,5 +636,176 @@ class TestDistanceCameraController(
         }
         return rgb
     }   
+
+    // Distance calculation methods without visual output
+    private fun calculateDistanceMethodCalibration(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Double? {
+        if (inputFrame == null) return null
+
+        val corners: MutableList<Mat> = mutableListOf()
+        val ids: Mat = Mat()
+        val detectedMarkers = detectMarkers(
+            inputFrame,
+            markerSize,
+            arucoDetector!!,
+            cameraMatrix,
+            distCoeffs,
+            corners,
+            ids
+        )
+        return if (detectedMarkers.isNotEmpty()) detectedMarkers[0].distance else null
+    }
+
+    private fun calculateDistanceMethod2Javi(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Double? {
+        if (inputFrame == null) return null
+
+        val gray = inputFrame.gray()
+        val corners: MutableList<Mat> = mutableListOf()
+        val ids: Mat = Mat()
+        arucoDetector?.detectMarkers(gray, corners, ids)
+
+        if (corners.isEmpty() || corners.size.toLong() != ids.total()) {
+            return null
+        }
+
+        try {
+            if (corners[0].total() < 4) return null
+
+            val cornerMatOfPoint2f = MatOfPoint2f(corners[0].reshape(2, 4))
+            val markerLengthPx = sqrt(
+                (cornerMatOfPoint2f[0, 0][0] - cornerMatOfPoint2f[1, 0][0]).pow(2) +
+                        (cornerMatOfPoint2f[0, 0][1] - cornerMatOfPoint2f[1, 0][1]).pow(2)
+            )
+
+            return (focalLengthMillimeters * (markerSize * 1000) / markerLengthPx) / 1000.0 // Convert to meters
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    private fun calculateDistanceMethod3JaviWithPixelRatio(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Double? {
+        if (inputFrame == null) return null
+
+        val frame = inputFrame.rgba() ?: return null
+        val pixelRatio = frame.width().toDouble() / sensorSizeWidth
+        val focalLength = focalLengthMillimeters * pixelRatio
+
+        val gray = inputFrame.gray()
+        val corners: MutableList<Mat> = mutableListOf()
+        val ids: Mat = Mat()
+        arucoDetector?.detectMarkers(gray, corners, ids)
+
+        if (corners.isEmpty() || corners.size.toLong() != ids.total()) {
+            return null
+        }
+
+        try {
+            if (corners[0].total() < 4) return null
+
+            val cornerMatOfPoint2f = MatOfPoint2f(corners[0].reshape(2, 4))
+            val markerLengthPx = sqrt(
+                (cornerMatOfPoint2f[0, 0][0] - cornerMatOfPoint2f[1, 0][0]).pow(2) +
+                        (cornerMatOfPoint2f[0, 0][1] - cornerMatOfPoint2f[1, 0][1]).pow(2)
+            )
+
+            return (focalLength * (markerSize * 1000) / markerLengthPx) / 1000.0 // Convert to meters
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    private fun calculateDistanceMethod4JaviWithHorizontalFOV(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Double? {
+        if (inputFrame == null) return null
+
+        val frame = inputFrame.rgba() ?: return null
+        val focalLength = (frame.width().toDouble() / 2) * (tan(horizontalFOV * 0.5))
+
+        val gray = inputFrame.gray()
+        val corners: MutableList<Mat> = mutableListOf()
+        val ids: Mat = Mat()
+        arucoDetector?.detectMarkers(gray, corners, ids)
+
+        if (corners.isEmpty() || corners.size.toLong() != ids.total()) {
+            return null
+        }
+
+        try {
+            if (corners[0].total() < 4) return null
+
+            val cornerMatOfPoint2f = MatOfPoint2f(corners[0].reshape(2, 4))
+            val markerLengthPx = sqrt(
+                (cornerMatOfPoint2f[0, 0][0] - cornerMatOfPoint2f[1, 0][0]).pow(2) +
+                        (cornerMatOfPoint2f[0, 0][1] - cornerMatOfPoint2f[1, 0][1]).pow(2)
+            )
+
+            return (focalLength * (markerSize * 1000) / markerLengthPx) / 1000.0 // Convert to meters
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    private fun calculateDistanceMethod5JaviWithHorizontalFOV2(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Double? {
+        if (inputFrame == null) return null
+
+        val frame = inputFrame.rgba() ?: return null
+        val focalLength = frame.width().toDouble() / (2 * tan(horizontalFOV / 2))
+
+        val gray = inputFrame.gray()
+        val corners: MutableList<Mat> = mutableListOf()
+        val ids: Mat = Mat()
+        arucoDetector?.detectMarkers(gray, corners, ids)
+
+        if (corners.isEmpty() || corners.size.toLong() != ids.total()) {
+            return null
+        }
+
+        try {
+            if (corners[0].total() < 4) return null
+
+            val cornerMatOfPoint2f = MatOfPoint2f(corners[0].reshape(2, 4))
+            val markerLengthPx = sqrt(
+                (cornerMatOfPoint2f[0, 0][0] - cornerMatOfPoint2f[1, 0][0]).pow(2) +
+                        (cornerMatOfPoint2f[0, 0][1] - cornerMatOfPoint2f[1, 0][1]).pow(2)
+            )
+
+            return (focalLength * (markerSize * 1000) / markerLengthPx) / 1000.0 // Convert to meters
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    private fun calculateDistanceMethod6CalculatedCameraMatrix(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Double? {
+        if (inputFrame == null) return null
+
+        val frame = inputFrame.rgba() ?: return null
+        val pixelRatioWidth = frame.width().toDouble() / sensorSizeWidth
+        val pixelRationHeight = frame.height().toDouble() / sensorSizeHeight
+        val focalLengthWidth = focalLengthMillimeters * pixelRatioWidth
+        val focalLengthHeight = focalLengthMillimeters * pixelRationHeight
+
+        val cameraMatrix = Mat(3, 3, org.opencv.core.CvType.CV_64F)
+        cameraMatrix.put(0, 0, focalLengthWidth)
+        cameraMatrix.put(0, 1, 0.0)
+        cameraMatrix.put(0, 2, frame.width().toDouble() / 2)
+        cameraMatrix.put(1, 0, 0.0)
+        cameraMatrix.put(1, 1, focalLengthHeight)
+        cameraMatrix.put(1, 2, frame.height().toDouble() / 2)
+        cameraMatrix.put(2, 0, 0.0)
+        cameraMatrix.put(2, 1, 0.0)
+        cameraMatrix.put(2, 2, 1.0)
+        val distCoeffs = Mat()
+
+        val corners: MutableList<Mat> = mutableListOf()
+        val ids: Mat = Mat()
+        val detectedMarkers = detectMarkers(
+            inputFrame,
+            markerSize*1000,
+            arucoDetector!!,
+            cameraMatrix,
+            distCoeffs,
+            corners,
+            ids
+        )
+        return if (detectedMarkers.isNotEmpty()) detectedMarkers[0].distance / 1000.0 else null // Convert to meters
+    }
 
 }
