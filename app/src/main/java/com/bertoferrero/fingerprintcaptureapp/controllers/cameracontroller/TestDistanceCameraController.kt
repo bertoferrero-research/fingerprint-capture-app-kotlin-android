@@ -4,13 +4,19 @@ package com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller
 import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.util.Log
 import android.widget.Toast
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.detectMarkers
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
+import kotlinx.coroutines.yield
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.core.Mat
 import org.opencv.core.MatOfDouble
 import org.opencv.core.MatOfPoint2f
+import org.opencv.videoio.VideoCapture
+import org.opencv.videoio.Videoio
+import java.io.File
 import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.sqrt
@@ -21,6 +27,7 @@ class TestDistanceCameraController(
     public var markerSize: Float = 0.173f,
     public var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
     public var method: Int = 1,
+    public var testingImageFrame: CvCameraViewFrameMockFromImage? = null
 ) : ICameraController {
     // Running variables
     private var running = false
@@ -93,15 +100,24 @@ class TestDistanceCameraController(
     }
 
     override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
+        val frameToProcess = if(testingImageFrame != null){
+            // If testingImageFrame is set, use it as the input frame
+            // This allows the controller to process a static image for testing purposes
+            // outputing the processed tested image
+            testingImageFrame
+        } else {
+            inputFrame
+        }
+        
         return when (method) {
-            1 -> methodCalibration(inputFrame)
-            2 -> method2Javi(inputFrame)
-            3 -> method3JaviWithPixelRatio(inputFrame)
-            4 -> method4JaviWithHorizontalFOV(inputFrame)
-            5 -> method5JaviWithHorizontalFOV2(inputFrame)
-            6 -> method6CalculatedCameraMatrix(inputFrame)
+            1 -> methodCalibration(frameToProcess)
+            2 -> method2Javi(frameToProcess)
+            3 -> method3JaviWithPixelRatio(frameToProcess)
+            4 -> method4JaviWithHorizontalFOV(frameToProcess)
+            5 -> method5JaviWithHorizontalFOV2(frameToProcess)
+            6 -> method6CalculatedCameraMatrix(frameToProcess)
             else -> {
-                inputFrame?.rgba() ?: Mat()
+                frameToProcess?.rgba() ?: Mat()
             }
         }
     }
@@ -599,8 +615,6 @@ class TestDistanceCameraController(
             )
         }
         return rgb
-    }
-
-
+    }   
 
 }

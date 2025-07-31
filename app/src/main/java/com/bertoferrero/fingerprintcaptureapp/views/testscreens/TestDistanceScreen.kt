@@ -1,15 +1,13 @@
 package com.bertoferrero.fingerprintcaptureapp.views.testscreens
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -18,10 +16,15 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.components.OpenCvCamera
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.ui.unit.dp
-import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestDistanceCameraController
-import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatFromFile
+import com.bertoferrero.fingerprintcaptureapp.viewmodels.testscreens.TestDistanceViewModel
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
@@ -31,101 +34,123 @@ import org.opencv.core.Mat
 
 class TestDistanceScreen : Screen {
 
-    private lateinit var cameraController: TestDistanceCameraController
-    private lateinit var settingsParametersManager: SettingsParametersManager
-    private var setterRunningContent: (Boolean) -> Unit = {}
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val (runningContent, setRunningContent) = remember { mutableStateOf(false) }
-        setterRunningContent = setRunningContent
-
         val context = LocalContext.current
-        settingsParametersManager = remember { SettingsParametersManager() }
-        cameraController = remember { TestDistanceCameraController(
-            context,
-            settingsParametersManager.markerSize,
-            settingsParametersManager.arucoDictionaryType
-        ) }
+        val viewModel = viewModel<TestDistanceViewModel>()
+        val isRunning = viewModel.isRunning
+
+        // Initialize controller immediately with context
+        viewModel.initializeController(context)
 
         BackHandler {
-            if (runningContent) {
-                cameraController.finishProcess()
+            if (isRunning) {
+                viewModel.stopTest()
             } else {
                 navigator.pop()
             }
         }
 
-        if (!runningContent) {
-            RenderSettingsScreen()
+        if (!isRunning) {
+            RenderSettingsScreen(viewModel)
         } else {
-            RenderRunningContent()
+            RenderRunningContent(viewModel)
         }
     }
 
     @Composable
-    fun RenderSettingsScreen() {
+    fun RenderSettingsScreen(viewModel: TestDistanceViewModel) {
+        val context = LocalContext.current
+        val cameraController = viewModel.cameraController
+
+        val imageMatFileChooser = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { fileUri: Uri? ->
+            fileUri?.let {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    inputStream?.let{
+                        val mat = MatFromFile(it)
+                        viewModel.cameraController.testingImageFrame =
+                            CvCameraViewFrameMockFromImage(mat)
+                    }
+                    inputStream?.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+        
         Scaffold(
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
 
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                item {
+                    NumberField<Float>(
+                        value = cameraController.markerSize,
+                        onValueChange = viewModel::updateMarkerSize,
+                        label = { Text("Marker size (m)") }
+                    )
 
-                NumberField<Float>(
-                    value = cameraController.markerSize,
-                    onValueChange = {
-                        cameraController.markerSize = it
-                        settingsParametersManager.markerSize = it
-                                    },
-                    label = { Text("Marker size (m)") }
-                )
+                    SimpleDropdownMenu(
+                        label = "Method",
+                        options = arrayOf("M1 - Calibration", "M2 - Javi", "M3 - Pixel ratio", "M4 - horizontal FOV", "M5 - horizontal FOV 2", "M6 - Calculated camera matrix"),
+                        values = arrayOf(1, 2, 3, 4, 5, 6),
+                        onOptionSelected = viewModel::updateMethod,
+                        selectedValue = cameraController.method,
+                    )
 
-                SimpleDropdownMenu(
-                    label = "Method",
-                    options = arrayOf("M1 - Calibration", "M2 - Javi", "M3 - Pixel ratio", "M4 - horizontal FOV", "M5 - horizontal FOV 2", "M6 - Calculated camera matrix"),
-                    values = arrayOf(1, 2, 3, 4, 5, 6),
-                    onOptionSelected = {
-                        cameraController.method = it
-                    },
-                    selectedValue = cameraController.method,
-                )
+                    ArucoTypeDropdownMenu(
+                        selectedArucoType = ArucoDictionaryType.fromInt(cameraController.arucoDictionaryType)!!,
+                        onArucoTypeSelected = { viewModel.updateArucoType(it.value) }
+                    )
 
-                ArucoTypeDropdownMenu(
-                    selectedArucoType = ArucoDictionaryType.fromInt(cameraController.arucoDictionaryType)!!,
-                    onArucoTypeSelected = {
-                        cameraController.arucoDictionaryType = it.value
-                        settingsParametersManager.arucoDictionaryType = it.value
+                    SimpleDropdownMenu(
+                        label = "Source type",
+                        values = arrayOf<String>("live", "image"),
+                        options = arrayOf("Live camera", "MAT Image"),
+                        onOptionSelected = {
+                            when (it) {
+                                "live" -> {
+                                    viewModel.cameraController.testingImageFrame = null
+                                }
+                                "image" -> imageMatFileChooser.launch(arrayOf("application/octet-stream"))
+                            }
+                        },
+                        selectedValue = when {
+                            viewModel.cameraController.testingImageFrame is CvCameraViewFrameMockFromImage -> "image"
+                            else -> "live"
+                        }
+                    )
+
+                    Button(
+                        onClick = viewModel::startTest
+                    ) {
+                        Text("Start test")
                     }
-                )
-
-                Button(
-                    onClick = {
-                        cameraController.initProcess()
-                        setterRunningContent(true)
-                    }) {
-                    Text("Start test")
                 }
             }
         }
     }
 
     @Composable
-    fun RenderRunningContent() {
+    fun RenderRunningContent(viewModel: TestDistanceViewModel) {
+        val cameraController = viewModel.cameraController
+        
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = {
-                        cameraController.finishProcess()
-                        setterRunningContent(false)
-                    }) {
+                    onClick = viewModel::stopTest
+                ) {
                     Text(
                         modifier = Modifier.padding(10.dp, 10.dp),
                         text = "Finish test"
@@ -133,7 +158,6 @@ class TestDistanceScreen : Screen {
                 }
             }
         ) { innerPadding ->
-
             OpenCvCamera(
                 object :
                     CameraBridgeViewBase.CvCameraViewListener2 {
