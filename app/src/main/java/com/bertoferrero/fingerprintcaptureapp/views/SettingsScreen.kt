@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.bertoferrero.fingerprintcaptureapp.views.settings.BatchCalibrationScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
 
@@ -44,7 +45,15 @@ class SettingsScreen : Screen {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Calibrate camera")
+                        Text("Live Calibrate camera")
+                    }
+                    Button(
+                        onClick = {
+                            navigator.push(BatchCalibrationScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Batch Camera Calibration")
                     }
                     Button(
                         onClick = {
