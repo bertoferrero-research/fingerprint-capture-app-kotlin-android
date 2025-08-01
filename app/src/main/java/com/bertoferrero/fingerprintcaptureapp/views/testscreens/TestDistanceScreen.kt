@@ -113,24 +113,6 @@ class TestDistanceScreen : Screen {
                         onArucoTypeSelected = { viewModel.updateArucoType(it.value) }
                     )
 
-                    SimpleDropdownMenu(
-                        label = "Source type",
-                        values = arrayOf<String>("live", "image"),
-                        options = arrayOf("Live camera", "MAT Image"),
-                        onOptionSelected = {
-                            when (it) {
-                                "live" -> {
-                                    viewModel.cameraController.testingImageFrame = null
-                                }
-                                "image" -> imageMatFileChooser.launch(arrayOf("application/octet-stream"))
-                            }
-                        },
-                        selectedValue = when {
-                            viewModel.cameraController.testingImageFrame is CvCameraViewFrameMockFromImage -> "image"
-                            else -> "live"
-                        }
-                    )
-
                     Button(
                         onClick = viewModel::startTest
                     ) {
