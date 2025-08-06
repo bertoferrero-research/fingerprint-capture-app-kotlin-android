@@ -57,7 +57,7 @@ class MainScreen : Screen {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Settings")
+                        Text("Settings & Tools")
                     }
                     Button(
                         onClick = {

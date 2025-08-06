@@ -19,6 +19,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.settings.BatchCalibrationScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
+import com.bertoferrero.fingerprintcaptureapp.views.tools.MatPhotoCompressionToolScreen
 
 class SettingsScreen : Screen {
     @Composable
@@ -62,6 +63,22 @@ class SettingsScreen : Screen {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Calibration Parameters")
+                    }
+
+                    // Separador para herramientas
+                    Text(
+                        text = "Tools",
+                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            navigator.push(MatPhotoCompressionToolScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("MatPhoto Compression Tool")
                     }
 
                 }
