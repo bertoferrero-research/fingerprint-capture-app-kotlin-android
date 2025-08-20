@@ -1,17 +1,13 @@
 package com.bertoferrero.fingerprintcaptureapp.views.capture
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,25 +19,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
-import com.bertoferrero.fingerprintcaptureapp.views.components.OpenCvCamera
-import org.opencv.android.CameraBridgeViewBase
-import org.opencv.android.Utils
-import org.opencv.core.Mat
-import androidx.core.graphics.createBitmap
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.capture.OfflineCaptureViewModel
+import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService
 
 class OfflineCaptureScreen : Screen {
 
@@ -52,31 +41,11 @@ class OfflineCaptureScreen : Screen {
         val viewModel = viewModel<OfflineCaptureViewModel>()
         val isRunning = viewModel.isRunning
 
-        // Registrar un BroadcastReceiver para notificar cuando se guarde el archivo o termine la captura
+        // Register/unregister broadcast receiver through ViewModel
         DisposableEffect(Unit) {
-            val receiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context?, intent: Intent?) {
-                    when (intent?.action) {
-                        "com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED" -> {
-                            viewModel.stopCapture(context!!)
-                        }
-                        "com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED" -> {
-                            viewModel.capturedSamplesCounter = intent.getIntExtra("capturedSamples", 0)
-                        }
-                    }
-                }
-            }
-            ContextCompat.registerReceiver(
-                context,
-                receiver,
-                IntentFilter().apply {
-                    addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED")
-                    addAction("com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED")
-                },
-                ContextCompat.RECEIVER_EXPORTED
-            )
+            viewModel.registerBroadcastReceiver()
             onDispose {
-                context.unregisterReceiver(receiver)
+                viewModel.unregisterBroadcastReceiver()
             }
         }
 
@@ -89,16 +58,16 @@ class OfflineCaptureScreen : Screen {
         }
         if(BleScanner.checkPermissions()) {
             if (!isRunning) {
-                RenderSettingsScreen(viewModel)
+                settingsScreen(viewModel)
             } else {
-                RenderRunningContent(viewModel, context)
+                runningContent(viewModel, context)
             }
         }
     }
 
 
     @Composable
-    fun RenderSettingsScreen(viewModel: OfflineCaptureViewModel) {
+    private fun settingsScreen(viewModel: OfflineCaptureViewModel) {
         val context = LocalContext.current
 
         val macFilterListFileChooser = rememberLauncherForActivityResult(
@@ -199,7 +168,16 @@ class OfflineCaptureScreen : Screen {
                     }
 
                     Button(
-                        onClick = {viewModel.startCapture(context)},
+                        onClick = {
+                            val success = viewModel.startCapture(context)
+                            if (!success) {
+                                Toast.makeText(
+                                    context,
+                                    "Error starting capture. Check configuration.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
                         enabled = (viewModel.initButtonEnabled)
                     ) {
                         Text("Start")
@@ -210,7 +188,7 @@ class OfflineCaptureScreen : Screen {
     }
 
     @Composable
-    fun RenderRunningContent(viewModel: OfflineCaptureViewModel, context: Context) {
+    private fun runningContent(viewModel: OfflineCaptureViewModel, context: Context) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {

@@ -1,8 +1,11 @@
 package com.bertoferrero.fingerprintcaptureapp.viewmodels.capture
 
 import android.Manifest
+import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -12,8 +15,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService
 import com.google.gson.Gson
@@ -22,11 +26,12 @@ import java.util.Timer
 import kotlin.concurrent.schedule
 
 class OfflineCaptureViewModel(
+    application: Application,
     var x: Float = 0f,
     var y: Float = 0f,
     var z: Float = 0f,
     var minutesLimit: Int = 0
-): ViewModel() {
+): AndroidViewModel(application) {
 
     //UI
 
@@ -34,11 +39,10 @@ class OfflineCaptureViewModel(
         private set
 
     var capturedSamplesCounter by mutableIntStateOf(0)
+        internal set
 
     var initButtonEnabled by mutableStateOf(false)
         private set
-
-    var macHistory = mutableListOf<RssiSample>()
 
     var outputFolderUri: Uri? = null
         private set
@@ -49,8 +53,11 @@ class OfflineCaptureViewModel(
     var macFilterList: List<String> = listOf()
         private set
 
-    fun evaluateEnableButtonTest() {
-        initButtonEnabled = outputFolderUri !== null;
+    // BroadcastReceiver for service events
+    private var broadcastReceiver: BroadcastReceiver? = null
+
+    private fun updateInitButtonState() {
+        initButtonEnabled = outputFolderUri != null
     }
 
     fun loadMacFilterListFromJson(jsonString: String) {
@@ -60,10 +67,52 @@ class OfflineCaptureViewModel(
 
     fun updateOutputFolderUri(uri: Uri) {
         outputFolderUri = uri
-        evaluateEnableButtonTest()
+        updateInitButtonState()
     }
 
     // END - UI
+
+    // Broadcast receiver management
+    fun registerBroadcastReceiver() {
+        if (broadcastReceiver == null) {
+            broadcastReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    when (intent?.action) {
+                        OfflineCaptureService.ACTION_TIMER_FINISHED -> {
+                            context?.let { stopCapture(it) }
+                        }
+                        OfflineCaptureService.ACTION_SAMPLE_CAPTURED -> {
+                            capturedSamplesCounter = intent.getIntExtra(OfflineCaptureService.EXTRA_CAPTURED_SAMPLES, 0)
+                        }
+                    }
+                }
+            }
+            
+            val intentFilter = IntentFilter().apply {
+                addAction(OfflineCaptureService.ACTION_TIMER_FINISHED)
+                addAction(OfflineCaptureService.ACTION_SAMPLE_CAPTURED)
+            }
+            
+            ContextCompat.registerReceiver(
+                getApplication(),
+                broadcastReceiver!!,
+                intentFilter,
+                ContextCompat.RECEIVER_EXPORTED
+            )
+        }
+    }
+
+    fun unregisterBroadcastReceiver() {
+        broadcastReceiver?.let { receiver ->
+            try {
+                getApplication<Application>().unregisterReceiver(receiver)
+            } catch (e: IllegalArgumentException) {
+                // Receiver was already unregistered, which is fine
+                Log.d("OfflineCaptureViewModel", "Receiver was already unregistered")
+            }
+            broadcastReceiver = null
+        }
+    }
 
     // PROCESS
 
@@ -71,19 +120,37 @@ class OfflineCaptureViewModel(
 
     @RequiresApi(Build.VERSION_CODES.O)
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
-    fun startCapture(context: Context) {
-        capturedSamplesCounter = 0
-        // Lanzar el Foreground Service con los parámetros
-        val intent = Intent(context, OfflineCaptureService::class.java).apply {
-            putExtra(OfflineCaptureService.EXTRA_X, x)
-            putExtra(OfflineCaptureService.EXTRA_Y, y)
-            putExtra(OfflineCaptureService.EXTRA_Z, z)
-            putExtra(OfflineCaptureService.EXTRA_MINUTES_LIMIT, minutesLimit)
-            putStringArrayListExtra(OfflineCaptureService.EXTRA_MAC_FILTER_LIST, ArrayList(macFilterList))
-            outputFolderUri?.let { putExtra(OfflineCaptureService.EXTRA_OUTPUT_FOLDER_URI, it) }
+    fun startCapture(context: Context): Boolean {
+        // Validate input parameters
+        if (outputFolderUri == null) {
+            Log.e("OfflineCaptureViewModel", "Output folder URI is null")
+            return false
         }
-        context.startForegroundService(intent)
-        isRunning = true
+        
+        if (minutesLimit < 0) {
+            Log.e("OfflineCaptureViewModel", "Minutes limit cannot be negative")
+            return false
+        }
+        
+        capturedSamplesCounter = 0
+        
+        try {
+            // Lanzar el Foreground Service con los parámetros
+            val intent = Intent(context, OfflineCaptureService::class.java).apply {
+                putExtra(OfflineCaptureService.EXTRA_X, x)
+                putExtra(OfflineCaptureService.EXTRA_Y, y)
+                putExtra(OfflineCaptureService.EXTRA_Z, z)
+                putExtra(OfflineCaptureService.EXTRA_MINUTES_LIMIT, minutesLimit)
+                putStringArrayListExtra(OfflineCaptureService.EXTRA_MAC_FILTER_LIST, ArrayList(macFilterList))
+                outputFolderUri?.let { putExtra(OfflineCaptureService.EXTRA_OUTPUT_FOLDER_URI, it) }
+            }
+            context.startForegroundService(intent)
+            isRunning = true
+            return true
+        } catch (e: Exception) {
+            Log.e("OfflineCaptureViewModel", "Error starting capture service", e)
+            return false
+        }
     }
 
     fun stopCapture(context: Context) {
@@ -94,13 +161,9 @@ class OfflineCaptureViewModel(
     }
 
     // END - PROCESS
-}
 
-class RssiSample(
-    val timestamp: Long = System.currentTimeMillis(),
-    val macAddress: String,
-    val rssi: Int,
-    val posX: Float,
-    val posY: Float,
-    val posZ: Float
-)
+    override fun onCleared() {
+        super.onCleared()
+        unregisterBroadcastReceiver()
+    }
+}

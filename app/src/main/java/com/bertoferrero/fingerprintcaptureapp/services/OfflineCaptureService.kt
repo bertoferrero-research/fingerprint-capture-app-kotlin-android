@@ -15,7 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.bertoferrero.fingerprintcaptureapp.R
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
-import com.bertoferrero.fingerprintcaptureapp.viewmodels.capture.RssiSample
+import com.bertoferrero.fingerprintcaptureapp.models.RssiSample
 import java.util.*
 import kotlin.concurrent.schedule
 
@@ -29,6 +29,11 @@ class OfflineCaptureService : Service() {
         const val EXTRA_MINUTES_LIMIT = "minutesLimit"
         const val EXTRA_MAC_FILTER_LIST = "macFilterList"
         const val EXTRA_OUTPUT_FOLDER_URI = "outputFolderUri"
+        
+        // Broadcast action constants
+        const val ACTION_TIMER_FINISHED = "com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED"
+        const val ACTION_SAMPLE_CAPTURED = "com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED"
+        const val EXTRA_CAPTURED_SAMPLES = "capturedSamples"
     }
 
     // BLE scanner instance
@@ -88,20 +93,37 @@ class OfflineCaptureService : Service() {
     }
 
     // Open the CSV file and write the header
-    private fun openCsvFile() {
-        val folder = DocumentFile.fromTreeUri(this, outputFolderUri!!)
-        val timestamp = System.currentTimeMillis()
-        val fileName = "offlinecapture__${x}_${y}_${z}__${timestamp}.csv"
-        val newFile = folder?.createFile("text/csv", fileName)
-        csvFileUri = newFile?.uri
-        outputStream = csvFileUri?.let { contentResolver.openOutputStream(it) }
-        outputStream?.write("timestamp,mac_address,rssi,pos_x,pos_y,pos_z\n".toByteArray())
+    private fun openCsvFile(): Boolean {
+        return try {
+            val folder = DocumentFile.fromTreeUri(this, outputFolderUri!!)
+                ?: throw IllegalStateException("Cannot access output folder")
+            
+            val timestamp = System.currentTimeMillis()
+            val fileName = "offlinecapture__${x}_${y}_${z}__${timestamp}.csv"
+            val newFile = folder.createFile("text/csv", fileName)
+                ?: throw IllegalStateException("Cannot create CSV file")
+            
+            csvFileUri = newFile.uri
+            outputStream = contentResolver.openOutputStream(csvFileUri!!)
+                ?: throw IllegalStateException("Cannot open output stream")
+            
+            outputStream?.write("timestamp,mac_address,rssi,pos_x,pos_y,pos_z\n".toByteArray())
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("OfflineCaptureService", "Error opening CSV file", e)
+            false
+        }
     }
 
     // Write a single sample to the CSV file
     private fun writeSample(sample: RssiSample) {
-        val line = "${sample.timestamp},${sample.macAddress},${sample.rssi},${sample.posX},${sample.posY},${sample.posZ}\n"
-        outputStream?.write(line.toByteArray())
+        try {
+            val line = "${sample.timestamp},${sample.macAddress},${sample.rssi},${sample.posX},${sample.posY},${sample.posZ}\n"
+            outputStream?.write(line.toByteArray())
+            outputStream?.flush() // Ensure data is written immediately
+        } catch (e: Exception) {
+            android.util.Log.e("OfflineCaptureService", "Error writing sample to CSV", e)
+        }
     }
 
     // Close the CSV file
@@ -121,7 +143,14 @@ class OfflineCaptureService : Service() {
         macFilterList: List<String>
     ) {
         capturedSamplesCounter = 0
-        openCsvFile() // Open file at the start
+        
+        // Open file at the start and check if successful
+        if (!openCsvFile()) {
+            android.util.Log.e("OfflineCaptureService", "Failed to open CSV file, stopping service")
+            stopSelf()
+            return
+        }
+        
         bleScanner = BleScanner(this, macFilterList) {
             val sample = RssiSample(
                 macAddress = it.device.address,
@@ -133,8 +162,8 @@ class OfflineCaptureService : Service() {
             writeSample(sample) // Write each sample as it arrives
             // Notify UI with the number of captured samples
             capturedSamplesCounter++
-            val intent = Intent("com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED")
-            intent.putExtra("capturedSamples", capturedSamplesCounter)
+            val intent = Intent(ACTION_SAMPLE_CAPTURED)
+            intent.putExtra(EXTRA_CAPTURED_SAMPLES, capturedSamplesCounter)
             sendBroadcast(intent)
         }
         bleScanner?.startScan()
@@ -143,7 +172,7 @@ class OfflineCaptureService : Service() {
             timer = Timer()
             timer?.schedule(minutesLimit * 60000L) {
                 // Notify UI that capture has finished due to timer
-                val intent = Intent("com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED")
+                val intent = Intent(ACTION_TIMER_FINISHED)
                 sendBroadcast(intent)
                 stopSelf()
             }

@@ -15,7 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.bertoferrero.fingerprintcaptureapp.R
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
-import com.bertoferrero.fingerprintcaptureapp.viewmodels.capture.RssiSample
+import com.bertoferrero.fingerprintcaptureapp.models.RssiSample
 import java.util.*
 import kotlin.concurrent.schedule
 
