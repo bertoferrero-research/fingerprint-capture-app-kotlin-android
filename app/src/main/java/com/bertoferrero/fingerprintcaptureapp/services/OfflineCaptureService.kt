@@ -50,8 +50,7 @@ class OfflineCaptureService : Service() {
     private var z: Float = 0f
 
     // Output stream for writing CSV in real time
-    private var outputStream: java.io.OutputStream? = null
-    private var csvFileUri: Uri? = null
+    private var outputStreams: MutableMap<String, java.io.OutputStream> = mutableMapOf()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -93,44 +92,59 @@ class OfflineCaptureService : Service() {
     }
 
     // Open the CSV file and write the header
-    private fun openCsvFile(): Boolean {
-        return try {
-            val folder = DocumentFile.fromTreeUri(this, outputFolderUri!!)
-                ?: throw IllegalStateException("Cannot access output folder")
-            
-            val timestamp = System.currentTimeMillis()
-            val fileName = "offlinecapture__${x}_${y}_${z}__${timestamp}.csv"
-            val newFile = folder.createFile("text/csv", fileName)
-                ?: throw IllegalStateException("Cannot create CSV file")
-            
-            csvFileUri = newFile.uri
-            outputStream = contentResolver.openOutputStream(csvFileUri!!)
-                ?: throw IllegalStateException("Cannot open output stream")
-            
-            outputStream?.write("timestamp,mac_address,rssi,pos_x,pos_y,pos_z\n".toByteArray())
-            true
-        } catch (e: Exception) {
-            android.util.Log.e("OfflineCaptureService", "Error opening CSV file", e)
-            false
+    private fun openCsvFile(name: String): java.io.OutputStream {
+        val folder = DocumentFile.fromTreeUri(this, outputFolderUri!!)
+            ?: throw IllegalStateException("Cannot access output folder")
+
+        val fileName = "${x}_${y}_${z}__${name}.csv"
+        val newFile = folder.createFile("text/csv", fileName)
+            ?: throw IllegalStateException("Cannot create CSV file")
+        
+        val outputStream = contentResolver.openOutputStream(newFile.uri!!)
+            ?: throw IllegalStateException("Cannot open output stream")
+        
+        outputStream.write("timestamp,mac_address,rssi,pos_x,pos_y,pos_z\n".toByteArray())
+        return outputStream
+    }
+
+    private fun getCsvOutputStream(name: String): java.io.OutputStream {
+        //If the stream is at the opened list, just return it
+        if (!outputStreams.containsKey(name)){
+            val newStream = openCsvFile(name)
+            outputStreams[name] = newStream
         }
+        return outputStreams[name]!!
     }
 
     // Write a single sample to the CSV file
     private fun writeSample(sample: RssiSample) {
         try {
             val line = "${sample.timestamp},${sample.macAddress},${sample.rssi},${sample.posX},${sample.posY},${sample.posZ}\n"
-            outputStream?.write(line.toByteArray())
-            outputStream?.flush() // Ensure data is written immediately
+            // Write the main log
+            val writter = getCsvOutputStream("all")
+            writter.write(line.toByteArray())
+            writter.flush() // Ensure data is written immediately
+            // And the MAC-specific log
+            val macWriter = getCsvOutputStream(sample.macAddress)
+            macWriter.write(line.toByteArray())
+            macWriter.flush()
         } catch (e: Exception) {
             android.util.Log.e("OfflineCaptureService", "Error writing sample to CSV", e)
+            throw e // Re-throw to be caught by caller
         }
     }
 
     // Close the CSV file
     private fun closeCsvFile() {
-        outputStream?.close()
-        outputStream = null
-        csvFileUri = null
+        // Close all output streams
+        outputStreams.values.forEach { 
+            try {
+                it.close()
+            } catch (e: Exception) {
+                android.util.Log.w("OfflineCaptureService", "Error closing output stream", e)
+            }
+        }
+        outputStreams.clear()
     }
 
     // Start BLE scanning and handle sample collection
@@ -144,13 +158,6 @@ class OfflineCaptureService : Service() {
     ) {
         capturedSamplesCounter = 0
         
-        // Open file at the start and check if successful
-        if (!openCsvFile()) {
-            android.util.Log.e("OfflineCaptureService", "Failed to open CSV file, stopping service")
-            stopSelf()
-            return
-        }
-        
         bleScanner = BleScanner(this, macFilterList) {
             val sample = RssiSample(
                 macAddress = it.device.address,
@@ -159,7 +166,12 @@ class OfflineCaptureService : Service() {
                 posY = y,
                 posZ = z
             )
-            writeSample(sample) // Write each sample as it arrives
+            try {
+                writeSample(sample)
+            } catch (e: Exception) {
+                android.util.Log.e("OfflineCaptureService", "Error writing sample to CSV", e)
+                stopSelf()
+            }
             // Notify UI with the number of captured samples
             capturedSamplesCounter++
             val intent = Intent(ACTION_SAMPLE_CAPTURED)
