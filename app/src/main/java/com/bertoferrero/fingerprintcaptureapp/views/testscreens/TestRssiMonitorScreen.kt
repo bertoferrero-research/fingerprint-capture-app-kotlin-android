@@ -107,7 +107,7 @@ class TestRssiMonitorScreen : Screen {
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     @RequiresApi(Build.VERSION_CODES.O)
     fun initBleScan(context: Context) {
-        bleScanner = BleScanner(context) {
+        bleScanner = BleScanner() {
             Log.d(
                 "TestRssiMonitorScreen",
                 "Device found: ${it.device.address}, RSSI: ${it.rssi}, TxPower: ${it.txPower}"
@@ -119,7 +119,7 @@ class TestRssiMonitorScreen : Screen {
         macHistory = mutableListOf()
         setterMacHistoryPrinter(macHistory)
         //Start the scan
-        bleScanner?.startScan()
+        bleScanner?.startScan(context)
         setterRunningContent(true)
     }
 

@@ -23,7 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+//import androidx.hilt.navigation.compose.hiltViewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -37,7 +39,12 @@ class OfflineCaptureScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val viewModel = viewModel<OfflineCaptureViewModel>()
+        // No consigo que el hilt funcione con esta version de kotlin
+        //val viewModel = hiltViewModel<OfflineCaptureViewModel>()
+        val viewModel = viewModel<OfflineCaptureViewModel>(
+            factory = ViewModelProvider.AndroidViewModelFactory.getInstance(context.applicationContext as android.app.Application)
+        )
+
         val isRunning = viewModel.isRunning
 
         // Register/unregister broadcast receiver through ViewModel
@@ -159,7 +166,7 @@ class OfflineCaptureScreen : Screen {
                         onValueChange = {
                             viewModel.initDelaySeconds = it
                         },
-                        label = { Text("Starting delay in seconds (0 for disable)") }
+                        label = { Text("Init delay in seconds (0 for disable)") }
                     )
 
                     Button(

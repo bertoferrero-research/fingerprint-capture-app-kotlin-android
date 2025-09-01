@@ -34,6 +34,7 @@ class OfflineCaptureService : Service() {
         // Broadcast action constants
         const val ACTION_TIMER_FINISHED = "com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED"
         const val ACTION_SAMPLE_CAPTURED = "com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED"
+        const val ACTION_SCAN_FAILED = "com.bertoferrero.fingerprintcaptureapp.captureservice.SCAN_FAILED"
         const val EXTRA_CAPTURED_SAMPLES = "capturedSamples"
     }
 
@@ -171,7 +172,7 @@ class OfflineCaptureService : Service() {
     ) {
         capturedSamplesCounter = 0
         
-        bleScanner = BleScanner(this, macFilterList) {
+        bleScanner = BleScanner(macFilterList) {
             val sample = RssiSample(
                 macAddress = it.device.address,
                 rssi = it.rssi,
@@ -191,7 +192,16 @@ class OfflineCaptureService : Service() {
             intent.putExtra(EXTRA_CAPTURED_SAMPLES, capturedSamplesCounter)
             sendBroadcast(intent)
         }
-        bleScanner?.startScan()
+        
+        // Intentar iniciar el escaneo
+        val scanStarted = bleScanner?.startScan(this) ?: false
+        if (!scanStarted) {
+            // Enviar broadcast de error
+            val errorIntent = Intent(ACTION_SCAN_FAILED)
+            sendBroadcast(errorIntent)
+            stopSelf()
+            return
+        }
         // If a time limit is set, schedule automatic stop
         if (minutesLimit > 0) {
             timer = Timer()

@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.getValue
@@ -20,21 +21,25 @@ import androidx.lifecycle.AndroidViewModel
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService
 import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService.Companion.ACTION_TIMER_FINISHED
+import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService.Companion.ACTION_SAMPLE_CAPTURED
+import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService.Companion.ACTION_SCAN_FAILED
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import java.util.Timer
-import kotlin.concurrent.schedule
+//import dagger.hilt.android.lifecycle.HiltViewModel
 
+//No consigo que el hilt funcione con esta version de kotlin
+//@HiltViewModel
 class OfflineCaptureViewModel(
-    application: Application,
-    var x: Float = 0f,
-    var y: Float = 0f,
-    var z: Float = 0f,
-    var minutesLimit: Int = 0,
-    var initDelaySeconds: Int = 0
+    application: Application
 ): AndroidViewModel(application) {
 
     //UI
+
+    var x: Float = 0f
+    var y: Float = 0f
+    var z: Float = 0f
+    var minutesLimit: Int = 0
+    var initDelaySeconds: Int = 0
 
     var isRunning by mutableStateOf(false)
         private set
@@ -85,6 +90,16 @@ class OfflineCaptureViewModel(
                         OfflineCaptureService.ACTION_SAMPLE_CAPTURED -> {
                             capturedSamplesCounter = intent.getIntExtra(OfflineCaptureService.EXTRA_CAPTURED_SAMPLES, 0)
                         }
+                        OfflineCaptureService.ACTION_SCAN_FAILED -> {
+                            context?.let {
+                                Toast.makeText(
+                                    it,
+                                    "BL scan failed. Please, check if the BL is enabled.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                isRunning = false
+                            }
+                        }
                     }
                 }
             }
@@ -92,6 +107,7 @@ class OfflineCaptureViewModel(
             val intentFilter = IntentFilter().apply {
                 addAction(OfflineCaptureService.ACTION_TIMER_FINISHED)
                 addAction(OfflineCaptureService.ACTION_SAMPLE_CAPTURED)
+                addAction(OfflineCaptureService.ACTION_SCAN_FAILED)
             }
             
             ContextCompat.registerReceiver(

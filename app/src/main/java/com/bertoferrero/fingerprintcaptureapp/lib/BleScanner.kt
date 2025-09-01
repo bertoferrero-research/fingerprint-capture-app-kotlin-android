@@ -17,11 +17,6 @@ import dev.icerock.moko.permissions.location.LOCATION
 
 class BleScanner(
     /**
-     * Context to use for scanning
-     */
-    private val context: Context,
-
-    /**
      * List of MAC addresses to filter
      */
     private val filterMacs: List<String> = emptyList(),
@@ -63,7 +58,7 @@ class BleScanner(
      * Start scanning for BLE devices
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
-    fun startScan() {
+    fun startScan(context: Context): Boolean {
         // Start scanning for BLE devices
         if(permissionsGranted) {
             val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -71,12 +66,15 @@ class BleScanner(
             btScanner = btAdapter?.bluetoothLeScanner
 
             if (btAdapter != null && !btAdapter.isEnabled) {
-                Toast.makeText(context, "Please, enable the bluetooth", Toast.LENGTH_SHORT).show()
+                //Toast.makeText(context, "Please, enable the bluetooth", Toast.LENGTH_SHORT).show()
+                Log.e("BleScannerLibrary", "Bluetooth is disabled")
             } else {
                 //BLE
                 btScanner?.startScan(bleScanCallback)
+                return true
             }
         }
+        return false
     }
 
     /**
