@@ -30,7 +30,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.capture.OfflineCaptureViewModel
-import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService
 
 class OfflineCaptureScreen : Screen {
 
@@ -154,6 +153,13 @@ class OfflineCaptureScreen : Screen {
                             viewModel.minutesLimit = it
                         },
                         label = { Text("Sampling minutes (0 for infinite)") }
+                    )
+                    NumberField<Int>(
+                        value = viewModel.initDelaySeconds,
+                        onValueChange = {
+                            viewModel.initDelaySeconds = it
+                        },
+                        label = { Text("Starting delay in seconds (0 for disable)") }
                     )
 
                     Button(

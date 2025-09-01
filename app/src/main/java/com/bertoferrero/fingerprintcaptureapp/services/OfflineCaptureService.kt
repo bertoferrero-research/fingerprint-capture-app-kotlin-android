@@ -26,6 +26,7 @@ class OfflineCaptureService : Service() {
         const val EXTRA_X = "x"
         const val EXTRA_Y = "y"
         const val EXTRA_Z = "z"
+        const val EXTRA_INIT_DELAY_SECONDS = "initDelaySeconds"
         const val EXTRA_MINUTES_LIMIT = "minutesLimit"
         const val EXTRA_MAC_FILTER_LIST = "macFilterList"
         const val EXTRA_OUTPUT_FOLDER_URI = "outputFolderUri"
@@ -40,6 +41,8 @@ class OfflineCaptureService : Service() {
     private var bleScanner: BleScanner? = null
     // Timer for capture duration
     private var timer: Timer? = null
+    // Timer for initial delay
+    private var initDelayTimer: Timer? = null
     // List to store captured samples
     private var capturedSamplesCounter = 0
     // Output folder URI for saving CSV
@@ -61,6 +64,7 @@ class OfflineCaptureService : Service() {
         x = intent?.getFloatExtra(EXTRA_X, 0f) ?: 0f
         y = intent?.getFloatExtra(EXTRA_Y, 0f) ?: 0f
         z = intent?.getFloatExtra(EXTRA_Z, 0f) ?: 0f
+        val initDelaySeconds = intent?.getIntExtra(EXTRA_INIT_DELAY_SECONDS, 0) ?: 0
         val minutesLimit = intent?.getIntExtra(EXTRA_MINUTES_LIMIT, 0) ?: 0
         val macFilterList = intent?.getStringArrayListExtra(EXTRA_MAC_FILTER_LIST) ?: arrayListOf()
         outputFolderUri = intent?.getParcelableExtra(EXTRA_OUTPUT_FOLDER_URI)
@@ -68,7 +72,16 @@ class OfflineCaptureService : Service() {
         // Start as a foreground service with a persistent notification
         startForeground(NOTIFICATION_ID, createNotification())
         // Start BLE capture process
-        startBleCapture(x, y, z, minutesLimit, macFilterList)
+        if(initDelaySeconds == 0) {
+            startBleCapture(x, y, z, minutesLimit, macFilterList)
+        }
+        else{
+            initDelayTimer = Timer()
+            initDelayTimer?.schedule(initDelaySeconds * 1000L) {
+                startBleCapture(x, y, z, minutesLimit, macFilterList)
+                initDelayTimer = null
+            }
+        }
         return START_NOT_STICKY
     }
 
@@ -195,6 +208,7 @@ class OfflineCaptureService : Service() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     override fun onDestroy() {
         timer?.cancel()
+        initDelayTimer?.cancel()
         bleScanner?.stopScan()
         bleScanner = null
         closeCsvFile() // Close file at the end

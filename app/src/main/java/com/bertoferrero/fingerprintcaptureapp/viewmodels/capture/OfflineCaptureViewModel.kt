@@ -16,10 +16,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService
+import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService.Companion.ACTION_TIMER_FINISHED
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.Timer
@@ -30,7 +30,8 @@ class OfflineCaptureViewModel(
     var x: Float = 0f,
     var y: Float = 0f,
     var z: Float = 0f,
-    var minutesLimit: Int = 0
+    var minutesLimit: Int = 0,
+    var initDelaySeconds: Int = 0
 ): AndroidViewModel(application) {
 
     //UI
@@ -131,6 +132,11 @@ class OfflineCaptureViewModel(
             Log.e("OfflineCaptureViewModel", "Minutes limit cannot be negative")
             return false
         }
+
+        if (initDelaySeconds < 0) {
+            Log.e("OfflineCaptureViewModel", "Initialization delay cannot be negative")
+            return false
+        }
         
         capturedSamplesCounter = 0
         
@@ -140,6 +146,7 @@ class OfflineCaptureViewModel(
                 putExtra(OfflineCaptureService.EXTRA_X, x)
                 putExtra(OfflineCaptureService.EXTRA_Y, y)
                 putExtra(OfflineCaptureService.EXTRA_Z, z)
+                putExtra(OfflineCaptureService.EXTRA_INIT_DELAY_SECONDS, initDelaySeconds)
                 putExtra(OfflineCaptureService.EXTRA_MINUTES_LIMIT, minutesLimit)
                 putStringArrayListExtra(OfflineCaptureService.EXTRA_MAC_FILTER_LIST, ArrayList(macFilterList))
                 outputFolderUri?.let { putExtra(OfflineCaptureService.EXTRA_OUTPUT_FOLDER_URI, it) }
