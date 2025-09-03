@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
@@ -94,7 +96,7 @@ class OfflineCaptureViewModel(
                             context?.let {
                                 Toast.makeText(
                                     it,
-                                    "BL scan failed. Please, check if the BL is enabled.",
+                                    "BLE scan failed. Please check if Bluetooth is enabled.",
                                     Toast.LENGTH_LONG
                                 ).show()
                                 isRunning = false
@@ -135,6 +137,38 @@ class OfflineCaptureViewModel(
 
     var bleScanner: BleScanner? = null
 
+    /**
+     * Verifica si la app está exenta de optimización de batería
+     */
+    fun isBatteryOptimizationIgnored(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            powerManager.isIgnoringBatteryOptimizations(context.packageName)
+        } else {
+            true // En versiones anteriores no hay optimización de batería
+        }
+    }
+
+    /**
+     * Solicita al usuario que deshabilite la optimización de batería para esta app
+     */
+    fun requestBatteryOptimizationExemption(context: Context): Intent? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val packageName = context.packageName
+            
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            } else {
+                null // Ya está exenta
+            }
+        } else {
+            null // No necesario en versiones anteriores
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun startCapture(context: Context): Boolean {
@@ -152,6 +186,37 @@ class OfflineCaptureViewModel(
         if (initDelaySeconds < 0) {
             Log.e("OfflineCaptureViewModel", "Initialization delay cannot be negative")
             return false
+        }
+
+        // Verificar optimización de batería
+        if (!isBatteryOptimizationIgnored(context)) {
+            Log.w("OfflineCaptureViewModel", "Battery optimization is enabled - service may be killed")
+            
+            // Intentar abrir configuración automáticamente
+            try {
+                val batteryIntent = requestBatteryOptimizationExemption(context)
+                if (batteryIntent != null) {
+                    context.startActivity(batteryIntent)
+                    Toast.makeText(
+                        context,
+                        "Please allow the app to run in background for continuous capture",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Recommended: Disable battery optimization for continuous capture",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Log.e("OfflineCaptureViewModel", "Error opening battery optimization settings", e)
+                Toast.makeText(
+                    context,
+                    "Could not open battery settings. Please configure it manually in Settings",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
         
         capturedSamplesCounter = 0

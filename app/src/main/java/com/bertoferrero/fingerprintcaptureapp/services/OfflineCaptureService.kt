@@ -16,8 +16,11 @@ import androidx.documentfile.provider.DocumentFile
 import com.bertoferrero.fingerprintcaptureapp.R
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.models.RssiSample
+import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.concurrent.schedule
+import android.os.PowerManager
+import androidx.annotation.RequiresApi
 
 class OfflineCaptureService : Service() {
     companion object {
@@ -58,6 +61,9 @@ class OfflineCaptureService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // WakeLock para mantener CPU activa
+    private var wakeLock: PowerManager.WakeLock? = null    
+
     // Entry point when the service is started
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -68,10 +74,20 @@ class OfflineCaptureService : Service() {
         val initDelaySeconds = intent?.getIntExtra(EXTRA_INIT_DELAY_SECONDS, 0) ?: 0
         val minutesLimit = intent?.getIntExtra(EXTRA_MINUTES_LIMIT, 0) ?: 0
         val macFilterList = intent?.getStringArrayListExtra(EXTRA_MAC_FILTER_LIST) ?: arrayListOf()
-        outputFolderUri = intent?.getParcelableExtra(EXTRA_OUTPUT_FOLDER_URI)
+        outputFolderUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(EXTRA_OUTPUT_FOLDER_URI, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra(EXTRA_OUTPUT_FOLDER_URI)
+        }
+
+        // Adquirir WakeLock inmediatamente
+        acquireWakeLock()
 
         // Start as a foreground service with a persistent notification
+        // IMPORTANTE: Debe ser llamado inmediatamente después del WakeLock
         startForeground(NOTIFICATION_ID, createNotification())
+        
         // Start BLE capture process
         if(initDelaySeconds == 0) {
             startBleCapture(x, y, z, minutesLimit, macFilterList)
@@ -86,23 +102,103 @@ class OfflineCaptureService : Service() {
         return START_NOT_STICKY
     }
 
+    
+
+    // Clean up resources and save data when the service is destroyed
+    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
+    override fun onDestroy() {
+        android.util.Log.i("OfflineCaptureService", "Service being destroyed - cleaning up resources")
+        
+        // Cancelar timers
+        timer?.cancel()
+        timer = null
+        initDelayTimer?.cancel()
+        initDelayTimer = null
+        
+        // Detener el escáner BLE
+        bleScanner?.stopScan()
+        bleScanner = null
+        
+        // Cerrar archivos CSV
+        closeCsvFile()
+
+        // Liberar WakeLock de forma segura
+        wakeLock?.let {
+            if (it.isHeld) {
+                try {
+                    it.release()
+                    android.util.Log.i("OfflineCaptureService", "WakeLock released successfully")
+                } catch (e: Exception) {
+                    android.util.Log.w("OfflineCaptureService", "Error releasing WakeLock", e)
+                }
+            }
+        }
+        wakeLock = null
+
+        super.onDestroy()
+    }
+
+    private fun acquireWakeLock() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "OfflineCaptureService::WakeLock"
+        )
+        wakeLock?.acquire(10 * 60 * 60 * 1000L) // 10 horas máximo
+    }
+
     // Create a persistent notification for the foreground service
     private fun createNotification(): Notification {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Offline BLE Capture",
-                NotificationManager.IMPORTANCE_LOW
-            )
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "BLE sampling service running continuously"
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                // Configuración para evitar que el sistema termine el servicio
+                setBypassDnd(true)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
+            }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Offline BLE Capture")
-            .setContentText("Sampling BLE devices...")
+            .setContentTitle("BLE Capture Active")
+            .setContentText("Continuous BLE sampling in progress...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(false)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
+    }
+
+    private fun updateNotification(message: String) {
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("BLE Capture Active")
+            .setContentText(message)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(false)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
+        
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, notification)
     }
 
     // Open the CSV file and write the header
@@ -114,10 +210,10 @@ class OfflineCaptureService : Service() {
         val newFile = folder.createFile("text/csv", fileName)
             ?: throw IllegalStateException("Cannot create CSV file")
         
-        val outputStream = contentResolver.openOutputStream(newFile.uri!!)
+        val outputStream = contentResolver.openOutputStream(newFile.uri)
             ?: throw IllegalStateException("Cannot open output stream")
         
-        outputStream.write("timestamp,mac_address,rssi,pos_x,pos_y,pos_z\n".toByteArray())
+        outputStream.write("timestamp,time,mac_address,rssi,tx_power,pos_x,pos_y,pos_z\n".toByteArray())
         return outputStream
     }
 
@@ -133,7 +229,9 @@ class OfflineCaptureService : Service() {
     // Write a single sample to the CSV file
     private fun writeSample(sample: RssiSample) {
         try {
-            val line = "${sample.timestamp},${sample.macAddress},${sample.rssi},${sample.posX},${sample.posY},${sample.posZ}\n"
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+            val dateFormated = dateFormat.format(Date(sample.timestamp))
+            val line = "${sample.timestamp},${dateFormated},${sample.macAddress},${sample.rssi},${sample.txPower},${sample.posX},${sample.posY},${sample.posZ}\n"
             // Write the main log
             val writter = getCsvOutputStream("all")
             writter.write(line.toByteArray())
@@ -148,11 +246,14 @@ class OfflineCaptureService : Service() {
         }
     }
 
+
     // Close the CSV file
     private fun closeCsvFile() {
+        android.util.Log.i("OfflineCaptureService", "Closing CSV files")
         // Close all output streams
         outputStreams.values.forEach { 
             try {
+                it.flush() // Asegurar que todos los datos se escriban antes de cerrar
                 it.close()
             } catch (e: Exception) {
                 android.util.Log.w("OfflineCaptureService", "Error closing output stream", e)
@@ -162,6 +263,7 @@ class OfflineCaptureService : Service() {
     }
 
     // Start BLE scanning and handle sample collection
+    @RequiresApi(Build.VERSION_CODES.O)
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     private fun startBleCapture(
         x: Float,
@@ -172,10 +274,14 @@ class OfflineCaptureService : Service() {
     ) {
         capturedSamplesCounter = 0
         
-        bleScanner = BleScanner(macFilterList) {
+        bleScanner = BleScanner(
+            filterMacs = macFilterList,
+            filterMacPrefixes = emptyList() // Por ahora solo usamos filtrado exacto
+        ) {
             val sample = RssiSample(
                 macAddress = it.device.address,
                 rssi = it.rssi,
+                txPower = it.txPower,
                 posX = x,
                 posY = y,
                 posZ = z
@@ -212,16 +318,5 @@ class OfflineCaptureService : Service() {
                 stopSelf()
             }
         }
-    }
-
-    // Clean up resources and save data when the service is destroyed
-    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
-    override fun onDestroy() {
-        timer?.cancel()
-        initDelayTimer?.cancel()
-        bleScanner?.stopScan()
-        bleScanner = null
-        closeCsvFile() // Close file at the end
-        super.onDestroy()
     }
 }

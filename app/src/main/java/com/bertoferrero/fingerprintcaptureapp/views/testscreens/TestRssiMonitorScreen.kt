@@ -384,34 +384,23 @@ class TestRssiMonitorScreen : Screen {
         }
         
         bleScanner = BleScanner(
-            filterMacs = emptyList(), // Sin filtro
+            filterMacs = emptyList(), // Sin filtro de MAC exactas
+            filterMacPrefixes = if (macPrefixFilter.isNotEmpty()) listOf(macPrefixFilter) else emptyList(), // Usar filtrado por hardware para prefijos
             onDeviceFound = {
                 val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
                     .format(java.util.Date())
                 
                 val macAddress = it.device.address
                 
-                // Aplicar filtro por prefijo MAC si está definido
-                val passesFilter = macPrefixFilter.isEmpty() || macAddress.uppercase().startsWith(macPrefixFilter.uppercase())
-                
-                if (!passesFilter) {
-                    // Si no pasa el filtro, no procesar este dispositivo
-                    Log.d(
-                        "TestRssiMonitorScreen",
-                        "Device $macAddress filtered out by prefix filter: $macPrefixFilter"
-                    )
-                    return@BleScanner
-                }
-                
                 when (phase) {
                     ScanPhase.DISCOVERY -> {
                         // Fase 1: Registrar todas las balizas normalmente
                         Log.d(
                             "TestRssiMonitorScreen",
-                            "DISCOVERY - Device found: $macAddress, RSSI: ${it.rssi}"
+                            "DISCOVERY - Device found: $macAddress, RSSI: ${it.rssi}, TxPower: ${it.txPower}"
                         )
                         
-                        macHistory.add("[$timestamp] $macAddress - RSSI: ${it.rssi}")
+                        macHistory.add("[$timestamp] $macAddress - RSSI: ${it.rssi}, TxPower: ${it.txPower}")
                         
                         if (!beaconData.containsKey(macAddress)) {
                             beaconData[macAddress] = mutableListOf()
@@ -424,10 +413,10 @@ class TestRssiMonitorScreen : Screen {
                         if (discoveredBeacons.contains(macAddress)) {
                             Log.d(
                                 "TestRssiMonitorScreen",
-                                "ELIMINATION - Known device still active: $macAddress, RSSI: ${it.rssi} - DISCARDING"
+                                "ELIMINATION - Known device still active: $macAddress, RSSI: ${it.rssi}, TxPower: ${it.txPower} - DISCARDING"
                             )
                             
-                            macHistory.add("[$timestamp] ❌ $macAddress - RSSI: ${it.rssi} (DESCARTADA)")
+                            macHistory.add("[$timestamp] ❌ $macAddress - RSSI: ${it.rssi}, TxPower: ${it.txPower} (DESCARTADA)")
                             discardedBeacons.add(macAddress)
                             
                             // Registrar para estadísticas pero marcar como descartada
