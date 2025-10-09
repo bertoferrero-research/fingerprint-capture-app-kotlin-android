@@ -21,10 +21,10 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
-import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService
-import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService.Companion.ACTION_TIMER_FINISHED
-import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService.Companion.ACTION_SAMPLE_CAPTURED
-import com.bertoferrero.fingerprintcaptureapp.services.OfflineCaptureService.Companion.ACTION_SCAN_FAILED
+import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService
+import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService.Companion.ACTION_TIMER_FINISHED
+import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService.Companion.ACTION_SAMPLE_CAPTURED
+import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService.Companion.ACTION_SCAN_FAILED
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 //import dagger.hilt.android.lifecycle.HiltViewModel
@@ -86,13 +86,13 @@ class OfflineCaptureViewModel(
             broadcastReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     when (intent?.action) {
-                        OfflineCaptureService.ACTION_TIMER_FINISHED -> {
+                        RssiCaptureService.ACTION_TIMER_FINISHED -> {
                             context?.let { stopCapture(it) }
                         }
-                        OfflineCaptureService.ACTION_SAMPLE_CAPTURED -> {
-                            capturedSamplesCounter = intent.getIntExtra(OfflineCaptureService.EXTRA_CAPTURED_SAMPLES, 0)
+                        RssiCaptureService.ACTION_SAMPLE_CAPTURED -> {
+                            capturedSamplesCounter = intent.getIntExtra(RssiCaptureService.EXTRA_CAPTURED_SAMPLES, 0)
                         }
-                        OfflineCaptureService.ACTION_SCAN_FAILED -> {
+                        RssiCaptureService.ACTION_SCAN_FAILED -> {
                             context?.let {
                                 Toast.makeText(
                                     it,
@@ -107,9 +107,9 @@ class OfflineCaptureViewModel(
             }
             
             val intentFilter = IntentFilter().apply {
-                addAction(OfflineCaptureService.ACTION_TIMER_FINISHED)
-                addAction(OfflineCaptureService.ACTION_SAMPLE_CAPTURED)
-                addAction(OfflineCaptureService.ACTION_SCAN_FAILED)
+                addAction(RssiCaptureService.ACTION_TIMER_FINISHED)
+                addAction(RssiCaptureService.ACTION_SAMPLE_CAPTURED)
+                addAction(RssiCaptureService.ACTION_SCAN_FAILED)
             }
             
             ContextCompat.registerReceiver(
@@ -223,14 +223,14 @@ class OfflineCaptureViewModel(
         
         try {
             // Lanzar el Foreground Service con los parámetros
-            val intent = Intent(context, OfflineCaptureService::class.java).apply {
-                putExtra(OfflineCaptureService.EXTRA_X, x)
-                putExtra(OfflineCaptureService.EXTRA_Y, y)
-                putExtra(OfflineCaptureService.EXTRA_Z, z)
-                putExtra(OfflineCaptureService.EXTRA_INIT_DELAY_SECONDS, initDelaySeconds)
-                putExtra(OfflineCaptureService.EXTRA_MINUTES_LIMIT, minutesLimit)
-                putStringArrayListExtra(OfflineCaptureService.EXTRA_MAC_FILTER_LIST, ArrayList(macFilterList))
-                outputFolderUri?.let { putExtra(OfflineCaptureService.EXTRA_OUTPUT_FOLDER_URI, it) }
+            val intent = Intent(context, RssiCaptureService::class.java).apply {
+                putExtra(RssiCaptureService.EXTRA_X, x)
+                putExtra(RssiCaptureService.EXTRA_Y, y)
+                putExtra(RssiCaptureService.EXTRA_Z, z)
+                putExtra(RssiCaptureService.EXTRA_INIT_DELAY_SECONDS, initDelaySeconds)
+                putExtra(RssiCaptureService.EXTRA_MINUTES_LIMIT, minutesLimit)
+                putStringArrayListExtra(RssiCaptureService.EXTRA_MAC_FILTER_LIST, ArrayList(macFilterList))
+                outputFolderUri?.let { putExtra(RssiCaptureService.EXTRA_OUTPUT_FOLDER_URI, it) }
             }
             context.startForegroundService(intent)
             isRunning = true
@@ -243,7 +243,7 @@ class OfflineCaptureViewModel(
 
     fun stopCapture(context: Context) {
         // Detener el Foreground Service
-        val intent = Intent(context, OfflineCaptureService::class.java)
+        val intent = Intent(context, RssiCaptureService::class.java)
         context.stopService(intent)
         isRunning = false
     }

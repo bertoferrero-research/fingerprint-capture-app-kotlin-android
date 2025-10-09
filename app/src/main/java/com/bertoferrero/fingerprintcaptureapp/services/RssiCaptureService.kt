@@ -22,9 +22,14 @@ import kotlin.concurrent.schedule
 import android.os.PowerManager
 import androidx.annotation.RequiresApi
 
-class OfflineCaptureService : Service() {
+/**
+ * Servicio en background para captura continua de señales RSSI BLE.
+ * Reutilizable tanto para captura offline como online.
+ * Gestiona el muestreo BLE, guardado de datos CSV y notificaciones.
+ */
+class RssiCaptureService : Service() {
     companion object {
-        const val CHANNEL_ID = "offline_capture_channel"
+        const val CHANNEL_ID = "rssi_capture_channel"
         const val NOTIFICATION_ID = 1001
         const val EXTRA_X = "x"
         const val EXTRA_Y = "y"
@@ -35,9 +40,9 @@ class OfflineCaptureService : Service() {
         const val EXTRA_OUTPUT_FOLDER_URI = "outputFolderUri"
         
         // Broadcast action constants
-        const val ACTION_TIMER_FINISHED = "com.bertoferrero.fingerprintcaptureapp.captureservice.TIMER_FINISHED"
-        const val ACTION_SAMPLE_CAPTURED = "com.bertoferrero.fingerprintcaptureapp.captureservice.SAMPLE_CAPTURED"
-        const val ACTION_SCAN_FAILED = "com.bertoferrero.fingerprintcaptureapp.captureservice.SCAN_FAILED"
+        const val ACTION_TIMER_FINISHED = "com.bertoferrero.fingerprintcaptureapp.rssicaptureservice.TIMER_FINISHED"
+        const val ACTION_SAMPLE_CAPTURED = "com.bertoferrero.fingerprintcaptureapp.rssicaptureservice.SAMPLE_CAPTURED"
+        const val ACTION_SCAN_FAILED = "com.bertoferrero.fingerprintcaptureapp.rssicaptureservice.SCAN_FAILED"
         const val EXTRA_CAPTURED_SAMPLES = "capturedSamples"
     }
 
@@ -64,7 +69,10 @@ class OfflineCaptureService : Service() {
     // WakeLock para mantener CPU activa
     private var wakeLock: PowerManager.WakeLock? = null    
 
-    // Entry point when the service is started
+    /**
+     * Punto de entrada cuando se inicia el servicio.
+     * Extrae los parámetros del intent y configura la captura BLE.
+     */
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Retrieve parameters from intent
@@ -102,12 +110,12 @@ class OfflineCaptureService : Service() {
         return START_NOT_STICKY
     }
 
-    
-
-    // Clean up resources and save data when the service is destroyed
+    /**
+     * Limpia recursos y guarda datos cuando el servicio es destruido.
+     */
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     override fun onDestroy() {
-        android.util.Log.i("OfflineCaptureService", "Service being destroyed - cleaning up resources")
+        android.util.Log.i("RssiCaptureService", "Service being destroyed - cleaning up resources")
         
         // Cancelar timers
         timer?.cancel()
@@ -127,9 +135,9 @@ class OfflineCaptureService : Service() {
             if (it.isHeld) {
                 try {
                     it.release()
-                    android.util.Log.i("OfflineCaptureService", "WakeLock released successfully")
+                    android.util.Log.i("RssiCaptureService", "WakeLock released successfully")
                 } catch (e: Exception) {
-                    android.util.Log.w("OfflineCaptureService", "Error releasing WakeLock", e)
+                    android.util.Log.w("RssiCaptureService", "Error releasing WakeLock", e)
                 }
             }
         }
@@ -142,17 +150,19 @@ class OfflineCaptureService : Service() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "OfflineCaptureService::WakeLock"
+            "RssiCaptureService::WakeLock"
         )
         wakeLock?.acquire(10 * 60 * 60 * 1000L) // 10 horas máximo
     }
 
-    // Create a persistent notification for the foreground service
+    /**
+     * Crea una notificación persistente para el servicio en foreground.
+     */
     private fun createNotification(): Notification {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Offline BLE Capture",
+                "RSSI BLE Capture",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "BLE sampling service running continuously"
@@ -201,7 +211,9 @@ class OfflineCaptureService : Service() {
         manager.notify(NOTIFICATION_ID, notification)
     }
 
-    // Open the CSV file and write the header
+    /**
+     * Abre el archivo CSV y escribe el header.
+     */
     private fun openCsvFile(name: String): java.io.OutputStream {
         val folder = DocumentFile.fromTreeUri(this, outputFolderUri!!)
             ?: throw IllegalStateException("Cannot access output folder")
@@ -226,7 +238,9 @@ class OfflineCaptureService : Service() {
         return outputStreams[name]!!
     }
 
-    // Write a single sample to the CSV file
+    /**
+     * Escribe una muestra individual al archivo CSV.
+     */
     private fun writeSample(sample: RssiSample) {
         try {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
@@ -241,28 +255,31 @@ class OfflineCaptureService : Service() {
             macWriter.write(line.toByteArray())
             macWriter.flush()
         } catch (e: Exception) {
-            android.util.Log.e("OfflineCaptureService", "Error writing sample to CSV", e)
+            android.util.Log.e("RssiCaptureService", "Error writing sample to CSV", e)
             throw e // Re-throw to be caught by caller
         }
     }
 
-
-    // Close the CSV file
+    /**
+     * Cierra los archivos CSV y libera recursos.
+     */
     private fun closeCsvFile() {
-        android.util.Log.i("OfflineCaptureService", "Closing CSV files")
+        android.util.Log.i("RssiCaptureService", "Closing CSV files")
         // Close all output streams
         outputStreams.values.forEach { 
             try {
                 it.flush() // Asegurar que todos los datos se escriban antes de cerrar
                 it.close()
             } catch (e: Exception) {
-                android.util.Log.w("OfflineCaptureService", "Error closing output stream", e)
+                android.util.Log.w("RssiCaptureService", "Error closing output stream", e)
             }
         }
         outputStreams.clear()
     }
 
-    // Start BLE scanning and handle sample collection
+    /**
+     * Inicia el escaneo BLE y maneja la recolección de muestras.
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     private fun startBleCapture(
@@ -289,7 +306,7 @@ class OfflineCaptureService : Service() {
             try {
                 writeSample(sample)
             } catch (e: Exception) {
-                android.util.Log.e("OfflineCaptureService", "Error writing sample to CSV", e)
+                android.util.Log.e("RssiCaptureService", "Error writing sample to CSV", e)
                 stopSelf()
             }
             // Notify UI with the number of captured samples
