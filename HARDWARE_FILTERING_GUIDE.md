@@ -115,7 +115,7 @@ bleScanner = BleScanner(
 
 ### Estructura del CSV
 ```
-timestamp,time,mac_address,rssi,tx_power,pos_x,pos_y,pos_z
+timestamp,time,mac_address,rssi,pos_x,pos_y,pos_z
 1693737600000,2023-09-03 12:00:00.000,AA:BB:CC:DD:EE:FF,-45,4,1.0,2.0,0.0
 ```
 
