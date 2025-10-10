@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import com.bertoferrero.fingerprintcaptureapp.controllers.capture.OnlineCaptureController
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService
 import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService.Companion.ACTION_TIMER_FINISHED
@@ -84,6 +85,24 @@ class OnlineCaptureViewModel(
     /** URI de la carpeta de salida para guardar archivos */
     var outputFolderUri: Uri? = null
         private set
+
+    // CONTROLADOR DE IMÁGENES
+
+    /** Controlador para captura de imágenes OpenCV */
+    private val imageController: OnlineCaptureController by lazy {
+        OnlineCaptureController(
+            getApplication<Application>().applicationContext
+        ) { imageCount ->
+            // Callback cuando se captura una imagen
+            updateCapturedImagesCounter(imageCount)
+            
+            // Nota: El límite de imágenes NO debe detener el proceso.
+            // El proceso se detiene únicamente por:
+            // 1. El límite de tiempo del RssiCaptureService
+            // 2. Cuando el usuario pulse detener manualmente
+            // La cámara puede ser estática y no requerir más imágenes
+        }
+    }
 
     // GESTIÓN DE BROADCAST RECEIVER
 
@@ -180,6 +199,26 @@ class OnlineCaptureViewModel(
         }
     }
 
+    /**
+     * Configura el controlador de imágenes con los parámetros actuales.
+     */
+    private fun configureImageController() {
+        imageController.apply {
+            samplingFrequency = this@OnlineCaptureViewModel.samplingFrequency
+            imageLimit = this@OnlineCaptureViewModel.imageLimit
+            outputFolderUri = this@OnlineCaptureViewModel.outputFolderUri
+        }
+    }
+
+    /**
+     * Obtiene la referencia al controlador de imágenes para uso en la UI.
+     * La UI necesita esta referencia para integrar con OpenCvCamera.
+     * Nota: La configuración se realiza una sola vez en startCapture().
+     */
+    fun getCameraController(): OnlineCaptureController {
+        return imageController
+    }
+
     // GESTIÓN DE CAPTURA
 
     /**
@@ -268,7 +307,11 @@ class OnlineCaptureViewModel(
         capturedImagesCounter = 0
         
         try {
-            // Lanzar el RssiCaptureService para captura BLE
+            // 1. Configurar e iniciar el controlador de imágenes
+            configureImageController()
+            imageController.initProcess()
+            
+            // 2. Lanzar el RssiCaptureService para captura BLE
             val intent = Intent(context, RssiCaptureService::class.java).apply {
                 putExtra(RssiCaptureService.EXTRA_X, x)
                 putExtra(RssiCaptureService.EXTRA_Y, y)
@@ -279,14 +322,18 @@ class OnlineCaptureViewModel(
                 outputFolderUri?.let { putExtra(RssiCaptureService.EXTRA_OUTPUT_FOLDER_URI, it) }
             }
             context.startForegroundService(intent)
+            
             isRunning = true
             evaluateEnableButtonTest()
             
-            // TODO: Aquí se iniciará también el OnlineCaptureController para imágenes
-            
+            Log.i("OnlineCaptureViewModel", "Online capture started - BLE Service + Image Controller")
             return true
         } catch (e: Exception) {
             Log.e("OnlineCaptureViewModel", "Error starting capture service", e)
+            // Si falla, limpiar el estado
+            imageController.finishProcess()
+            isRunning = false
+            evaluateEnableButtonTest()
             return false
         }
     }
@@ -295,14 +342,17 @@ class OnlineCaptureViewModel(
      * Detiene la captura online (BLE + imágenes).
      */
     fun stopCapture(context: Context) {
-        // Detener el RssiCaptureService
+        // 1. Detener el controlador de imágenes
+        imageController.finishProcess()
+        
+        // 2. Detener el RssiCaptureService
         val intent = Intent(context, RssiCaptureService::class.java)
         context.stopService(intent)
         
-        // TODO: Detener también el OnlineCaptureController para imágenes
-        
         isRunning = false
         evaluateEnableButtonTest()
+        
+        Log.i("OnlineCaptureViewModel", "Online capture stopped - BLE Service + Image Controller")
     }
 
     /**

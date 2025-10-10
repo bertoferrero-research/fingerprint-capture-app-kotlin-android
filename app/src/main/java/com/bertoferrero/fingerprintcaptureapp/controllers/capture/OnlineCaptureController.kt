@@ -143,11 +143,10 @@ class OnlineCaptureController(
                 }
             }
 
-            // Verificar si se alcanzó el límite
-            if (imageLimit > 0 && capturedImagesCounter >= imageLimit) {
-                Log.i("OnlineCaptureController", "Image limit reached: $imageLimit")
-                finishProcess()
-            }
+            // Nota: NO detener automáticamente por límite de imágenes.
+            // El proceso se controla únicamente desde ViewModel/UI por:
+            // 1. Límite de tiempo del RssiCaptureService
+            // 2. Detención manual por el usuario
 
         } catch (e: Exception) {
             Log.e("OnlineCaptureController", "Error capturing frame", e)

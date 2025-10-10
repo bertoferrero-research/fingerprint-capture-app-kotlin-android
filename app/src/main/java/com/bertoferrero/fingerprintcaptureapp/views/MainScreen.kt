@@ -17,6 +17,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.capture.OfflineCaptureScreen
+import com.bertoferrero.fingerprintcaptureapp.views.capture.OnlineCaptureScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
 import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestDistanceScreen
@@ -50,6 +51,14 @@ class MainScreen : Screen {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Offline Capture")
+                    }
+                    Button(
+                        onClick = {
+                            navigator.push(OnlineCaptureScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Online Capture (BLE + Images)")
                     }
                     Button(
                         onClick = {
