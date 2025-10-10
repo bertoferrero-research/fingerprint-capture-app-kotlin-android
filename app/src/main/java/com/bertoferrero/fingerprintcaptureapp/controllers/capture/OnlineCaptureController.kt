@@ -6,9 +6,9 @@ import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.ICameraController
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatToFile
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.sync.Semaphore
 import org.opencv.core.MatOfByte
 import org.opencv.imgcodecs.Imgcodecs
 
@@ -49,8 +49,29 @@ class OnlineCaptureController(
     /** Contador de imágenes capturadas */
     private var capturedImagesCounter = 0
 
-    /** Scope para corrutinas de guardado asíncrono */
-    private val saveScope = CoroutineScope(Dispatchers.IO)
+    // SISTEMA DE COLA CON SEMÁFORO
+
+    /** Scope para corrutinas de guardado */
+    private val saveScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /** Canal para cola de imágenes a guardar */
+    private val saveQueue = Channel<ImageSaveTask>(capacity = Channel.UNLIMITED)
+
+    /** Semáforo para limitar trabajos concurrentes de guardado */
+    private val saveSemaphore = Semaphore(2) // Máximo 2 guardados concurrentes
+
+    /** Job del procesador de cola */
+    private var queueProcessorJob: Job? = null
+
+    /**
+     * Clase que representa una tarea de guardado de imagen.
+     */
+    private data class ImageSaveTask(
+        val mat: Mat,
+        val matGray: Mat,
+        val timestamp: Long,
+        val imageNumber: Int
+    )
 
 
 
@@ -62,13 +83,19 @@ class OnlineCaptureController(
             capturedImagesCounter = 0
             lastCaptureTimestamp = 0
             
-            Log.i("OnlineCaptureController", "Image capture process initialized")
+            // Iniciar el procesador de cola de guardado
+            startSaveQueueProcessor()
+            
+            Log.i("OnlineCaptureController", "Image capture process initialized with queue system")
         }
     }
 
     override fun finishProcess() {
         if (running) {
             running = false
+            
+            // Detener el procesador de cola y cerrar canal
+            stopSaveQueueProcessor()
             
             Log.i("OnlineCaptureController", "Image capture process finished. Total images: $capturedImagesCounter")
         }
@@ -133,16 +160,14 @@ class OnlineCaptureController(
 
             Log.d("OnlineCaptureController", "Image captured: $capturedImagesCounter")
 
-            // Guardar de forma asíncrona (estilo .NET async)
-            saveScope.launch {
-                try {
-                    saveImageAsync(frameCopy, frameGrayCopy, timestamp, capturedImagesCounter)
-                } catch (e: Exception) {
-                    Log.e("OnlineCaptureController", "Error saving image $capturedImagesCounter", e)
-                } finally {
-                    // Liberar memoria del Mat
-                    frameCopy.release()
-                }
+            // Enviar a cola de guardado (no bloquea el hilo de captura)
+            val saveTask = ImageSaveTask(frameCopy, frameGrayCopy, timestamp, capturedImagesCounter)
+            val offered = saveQueue.trySend(saveTask)
+            if (!offered.isSuccess) {
+                Log.w("OnlineCaptureController", "Failed to queue image $capturedImagesCounter for saving")
+                // Liberar memoria si no se pudo encolar
+                frameCopy.release()
+                frameGrayCopy.release()
             }
 
             // Nota: NO detener automáticamente por límite de imágenes.
@@ -155,11 +180,78 @@ class OnlineCaptureController(
         }
     }
 
-    // GUARDADO ASÍNCRONO (.NET ASYNC STYLE)
+    // SISTEMA DE COLA CON SEMÁFORO
 
     /**
-     * Guarda una imagen de forma asíncrona (estilo .NET async/await).
-     * Cada imagen se guarda independientemente en paralelo.
+     * Inicia el procesador de cola que consume tareas de guardado.
+     */
+    private fun startSaveQueueProcessor() {
+        queueProcessorJob = saveScope.launch {
+            try {
+                while (isActive) {
+                    try {
+                        // Esperar por la siguiente tarea de guardado
+                        val task = saveQueue.receive()
+                        
+                        // Lanzar guardado con semáforo para limitar concurrencia
+                        launch {
+                            saveSemaphore.acquire()
+                            try {
+                                saveImageAsync(task.mat, task.matGray, task.timestamp, task.imageNumber)
+                            } finally {
+                                // Liberar recursos
+                                task.mat.release()
+                                task.matGray.release()
+                                saveSemaphore.release()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (e !is CancellationException) {
+                            Log.e("OnlineCaptureController", "Error in save queue processor", e)
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                Log.i("OnlineCaptureController", "Save queue processor cancelled")
+            }
+        }
+    }
+
+    /**
+     * Detiene el procesador de cola y limpia recursos.
+     */
+    private fun stopSaveQueueProcessor() {
+        queueProcessorJob?.cancel()
+        queueProcessorJob = null
+        saveQueue.close()
+        
+        // Limpiar tareas pendientes
+        saveScope.launch {
+            @OptIn(ExperimentalCoroutinesApi::class)
+            while (!saveQueue.isEmpty) {
+                try {
+                    val task = saveQueue.tryReceive().getOrNull()
+                    task?.let {
+                        // Guardar imagen antes de liberar
+                        saveSemaphore.acquire()
+                        try {
+                            saveImageAsync(it.mat, it.matGray, it.timestamp, it.imageNumber)
+                        } finally {
+                            it.mat.release()
+                            it.matGray.release()
+                            saveSemaphore.release()
+                        }
+                    }
+                } catch (e: Exception) {
+                    break
+                }
+            }
+        }
+    }
+
+    /**
+     * Guarda una imagen de forma asíncrona.
+     * Llamado desde el procesador de cola con semáforo controlando concurrencia.
      */
     private suspend fun saveImageAsync(mat: Mat, matGray: Mat, timestamp: Long, imageNumber: Int) {
         try {
