@@ -369,6 +369,7 @@ private fun ConfigurationContent(
 
 /**
  * Contenido de ejecución durante la captura activa.
+ * OpenCV ocupa toda la pantalla con elementos flotantes para resolución correcta.
  */
 @Composable
 private fun ExecutionContent(
@@ -377,16 +378,24 @@ private fun ExecutionContent(
     onStopCapture: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Cámara OpenCV que ocupa la mayor parte de la pantalla
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) {
-            // Cámara OpenCV integrada con OnlineCaptureController
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        floatingActionButton = {
+            // Botón flotante para detener captura
+            FloatingActionButton(
+                onClick = onStopCapture,
+                containerColor = MaterialTheme.colorScheme.error
+            ) {
+                Text(
+                    modifier = Modifier.padding(10.dp, 10.dp),
+                    text = "Detener",
+                    color = MaterialTheme.colorScheme.onError
+                )
+            }
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Cámara OpenCV ocupando toda la pantalla
             OpenCvCamera(
                 object : CameraBridgeViewBase.CvCameraViewListener2 {
                     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
@@ -399,7 +408,7 @@ private fun ExecutionContent(
                 }
             ).Render(modifier = Modifier.fillMaxSize())
             
-            // Overlay con estadísticas
+            // Overlay superior izquierdo con estadísticas
             Card(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -409,55 +418,77 @@ private fun ExecutionContent(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
                         text = "Captura Online",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 14.sp
                     )
-                    Text("Muestras BLE: ${viewModel.capturedSamplesCounter}")
-                    Text("Imágenes: ${viewModel.capturedImagesCounter}")
                     
                     val status = if (viewModel.isRunning) "🟢 Activo" else "🔴 Preparado"
                     Text(
                         text = status,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                    
+                    Text(
+                        text = "BLE: ${viewModel.capturedSamplesCounter}",
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "IMG: ${viewModel.capturedImagesCounter}",
+                        fontSize = 12.sp
                     )
                 }
             }
-        }
-
-        // Panel inferior con controles
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp
-            )
-        ) {
-            Row(
+            
+            // Botón flotante superior derecho para volver
+            FloatingActionButton(
+                onClick = onNavigateBack,
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .align(Alignment.TopEnd)
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                containerColor = MaterialTheme.colorScheme.secondary
             ) {
-                Button(
-                    onClick = onNavigateBack,
-                    modifier = Modifier.weight(1f)
+                Text(
+                    modifier = Modifier.padding(8.dp),
+                    text = "←",
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSecondary
+                )
+            }
+            
+            // Panel flotante inferior con configuración actual (opcional, se puede ocultar)
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .fillMaxWidth(0.8f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    Text("Volver")
-                }
-                
-                Button(
-                    onClick = onStopCapture,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
+                    Text(
+                        text = "Pos: (${viewModel.x}, ${viewModel.y}, ${viewModel.z})",
+                        fontSize = 10.sp
                     )
-                ) {
-                    Text("Detener")
+                    Text(
+                        text = "Freq: ${viewModel.samplingFrequency}ms",
+                        fontSize = 10.sp
+                    )
+                    if (viewModel.minutesLimit > 0) {
+                        Text(
+                            text = "Tiempo: ${viewModel.minutesLimit}min",
+                            fontSize = 10.sp
+                        )
+                    }
                 }
             }
         }

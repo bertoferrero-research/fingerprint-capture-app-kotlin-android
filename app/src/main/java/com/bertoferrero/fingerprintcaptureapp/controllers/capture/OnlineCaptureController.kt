@@ -121,6 +121,8 @@ class OnlineCaptureController(
             // Crear copia del Mat para guardado asíncrono
             val frameCopy = Mat()
             frame.copyTo(frameCopy)
+            val frameGrayCopy = Mat()
+            inputFrame.gray().copyTo(frameGrayCopy)
 
             // Incrementar contador y actualizar timestamp
             capturedImagesCounter++
@@ -134,7 +136,7 @@ class OnlineCaptureController(
             // Guardar de forma asíncrona (estilo .NET async)
             saveScope.launch {
                 try {
-                    saveImageAsync(frameCopy, timestamp, capturedImagesCounter)
+                    saveImageAsync(frameCopy, frameGrayCopy, timestamp, capturedImagesCounter)
                 } catch (e: Exception) {
                     Log.e("OnlineCaptureController", "Error saving image $capturedImagesCounter", e)
                 } finally {
@@ -159,7 +161,7 @@ class OnlineCaptureController(
      * Guarda una imagen de forma asíncrona (estilo .NET async/await).
      * Cada imagen se guarda independientemente en paralelo.
      */
-    private suspend fun saveImageAsync(mat: Mat, timestamp: Long, imageNumber: Int) {
+    private suspend fun saveImageAsync(mat: Mat, matGray: Mat, timestamp: Long, imageNumber: Int) {
         try {
             val folder = DocumentFile.fromTreeUri(context, outputFolderUri!!)
                 ?: throw IllegalStateException("Cannot access output folder")
@@ -175,7 +177,7 @@ class OnlineCaptureController(
              // Guardar preview JPG (no crítico)
             try {
                 val jpgMat = MatOfByte()
-                Imgcodecs.imencode(".jpg", mat, jpgMat)
+                Imgcodecs.imencode(".jpg", matGray, jpgMat)
                 val jpgFile = folder.createFile("image/jpeg", fileName+"_preview.jpg")
                 jpgFile?.uri?.let { fileUri ->
                     context.contentResolver.openOutputStream(fileUri)?.use { out ->

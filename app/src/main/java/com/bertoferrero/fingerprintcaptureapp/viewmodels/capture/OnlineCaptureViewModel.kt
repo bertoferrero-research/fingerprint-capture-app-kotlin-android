@@ -83,7 +83,7 @@ class OnlineCaptureViewModel(
         private set
 
     /** URI de la carpeta de salida para guardar archivos */
-    var outputFolderUri: Uri? = null
+    var outputFolderUri: Uri? by mutableStateOf(null)
         private set
 
     // CONTROLADOR DE IMÁGENES
@@ -117,6 +117,9 @@ class OnlineCaptureViewModel(
             broadcastReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     when (intent?.action) {
+                        RssiCaptureService.ACTION_SCAN_BEGINS -> {                            
+                            imageController.initProcess()
+                        }
                         RssiCaptureService.ACTION_TIMER_FINISHED -> {
                             context?.let { stopCapture(it) }
                         }
@@ -141,6 +144,7 @@ class OnlineCaptureViewModel(
                 addAction(RssiCaptureService.ACTION_TIMER_FINISHED)
                 addAction(RssiCaptureService.ACTION_SAMPLE_CAPTURED)
                 addAction(RssiCaptureService.ACTION_SCAN_FAILED)
+                addAction(RssiCaptureService.ACTION_SCAN_BEGINS)
             }
             
             ContextCompat.registerReceiver(
@@ -309,7 +313,6 @@ class OnlineCaptureViewModel(
         try {
             // 1. Configurar e iniciar el controlador de imágenes
             configureImageController()
-            imageController.initProcess()
             
             // 2. Lanzar el RssiCaptureService para captura BLE
             val intent = Intent(context, RssiCaptureService::class.java).apply {

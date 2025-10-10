@@ -40,6 +40,7 @@ class RssiCaptureService : Service() {
         const val EXTRA_OUTPUT_FOLDER_URI = "outputFolderUri"
         
         // Broadcast action constants
+        const val ACTION_SCAN_BEGINS = "com.bertoferrero.fingerprintcaptureapp.rssicaptureservice.SCAN_BEGINS"
         const val ACTION_TIMER_FINISHED = "com.bertoferrero.fingerprintcaptureapp.rssicaptureservice.TIMER_FINISHED"
         const val ACTION_SAMPLE_CAPTURED = "com.bertoferrero.fingerprintcaptureapp.rssicaptureservice.SAMPLE_CAPTURED"
         const val ACTION_SCAN_FAILED = "com.bertoferrero.fingerprintcaptureapp.rssicaptureservice.SCAN_FAILED"
@@ -290,7 +291,10 @@ class RssiCaptureService : Service() {
         macFilterList: List<String>
     ) {
         capturedSamplesCounter = 0
-        
+
+        val beginsIntent = Intent(ACTION_SCAN_BEGINS)
+        sendBroadcast(beginsIntent)
+
         bleScanner = BleScanner(
             filterMacs = macFilterList,
             filterMacPrefixes = emptyList() // Por ahora solo usamos filtrado exacto
