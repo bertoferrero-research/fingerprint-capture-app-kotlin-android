@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import com.bertoferrero.fingerprintcaptureapp.controllers.capture.OnlineCaptureController
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
 import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService
 import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService.Companion.ACTION_TIMER_FINISHED
@@ -27,65 +28,98 @@ import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService.Compan
 import com.bertoferrero.fingerprintcaptureapp.services.RssiCaptureService.Companion.ACTION_SCAN_FAILED
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-//import dagger.hilt.android.lifecycle.HiltViewModel
 
-//No consigo que el hilt funcione con esta version de kotlin
-//@HiltViewModel
-class OfflineCaptureViewModel(
+/**
+ * ViewModel para la captura online que combina señales RSSI BLE con imágenes OpenCV.
+ * Coordina el RssiCaptureService para BLE y un controlador propio para imágenes.
+ * Los parámetros no son persistentes y se configuran por sesión.
+ */
+class OnlineCaptureViewModel(
     application: Application
 ): AndroidViewModel(application) {
 
-    //UI
+    // CONFIGURACIÓN (no persistente)
 
+    /** Posición X para las muestras RSSI */
     var x: Float = 0f
+
+    /** Posición Y para las muestras RSSI */
     var y: Float = 0f
+
+    /** Posición Z para las muestras RSSI */
     var z: Float = 0f
-    var minutesLimit: Int = 0
+
+    /** Delay inicial antes de comenzar captura (segundos) */
     var initDelaySeconds: Int = 0
 
+    /** Límite de tiempo total de captura (minutos, 0 = ilimitado) */
+    var minutesLimit: Int = 0
+
+    /** Frecuencia de muestreo para imágenes (milisegundos) */
+    var samplingFrequency: Int = 1000
+
+    /** Límite de imágenes a capturar (0 = ilimitado) */
+    var imageLimit: Int = 0
+
+    /** Lista de direcciones MAC a filtrar para BLE */
+    var macFilterList: MutableList<String> = mutableListOf()
+
+    // ESTADO DE LA UI
+
+    /** Indica si la captura está en ejecución */
     var isRunning by mutableStateOf(false)
         private set
 
+    /** Contador de muestras RSSI capturadas (del servicio BLE) */
     var capturedSamplesCounter by mutableIntStateOf(0)
-        internal set
+        private set
 
+    /** Contador de imágenes capturadas (del controlador) */
+    var capturedImagesCounter by mutableIntStateOf(0)
+        private set
+
+    /** Indica si el botón de inicio está habilitado */
     var initButtonEnabled by mutableStateOf(false)
         private set
 
-    var outputFolderUri: Uri? = null
+    /** URI de la carpeta de salida para guardar archivos */
+    var outputFolderUri: Uri? by mutableStateOf(null)
         private set
 
+    // CONTROLADOR DE IMÁGENES
+
+    /** Controlador para captura de imágenes OpenCV */
+    private val imageController: OnlineCaptureController by lazy {
+        OnlineCaptureController(
+            getApplication<Application>().applicationContext
+        ) { imageCount ->
+            // Callback cuando se captura una imagen
+            updateCapturedImagesCounter(imageCount)
+            
+            // Nota: El límite de imágenes NO debe detener el proceso.
+            // El proceso se detiene únicamente por:
+            // 1. El límite de tiempo del RssiCaptureService
+            // 2. Cuando el usuario pulse detener manualmente
+            // La cámara puede ser estática y no requerir más imágenes
+        }
+    }
+
+    // GESTIÓN DE BROADCAST RECEIVER
+
+    private var broadcastReceiver: BroadcastReceiver? = null
     private var timer: java.util.Timer? = null
 
-    //TODO better in controller
-    var macFilterList: List<String> = listOf()
-        private set
-
-    // BroadcastReceiver for service events
-    private var broadcastReceiver: BroadcastReceiver? = null
-
-    private fun updateInitButtonState() {
-        initButtonEnabled = outputFolderUri != null
-    }
-
-    fun loadMacFilterListFromJson(jsonString: String) {
-        val type = object : TypeToken<List<String>>() {}.type
-        macFilterList = Gson().fromJson(jsonString, type)
-    }
-
-    fun updateOutputFolderUri(uri: Uri) {
-        outputFolderUri = uri
-        updateInitButtonState()
-    }
-
-    // END - UI
-
-    // Broadcast receiver management
+    /**
+     * Registra el broadcast receiver para escuchar eventos del RssiCaptureService.
+     */
     fun registerBroadcastReceiver() {
         if (broadcastReceiver == null) {
             broadcastReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     when (intent?.action) {
+                        RssiCaptureService.ACTION_SCAN_BEGINS -> {                            
+                            imageController.initProcess()
+                        }
                         RssiCaptureService.ACTION_TIMER_FINISHED -> {
                             context?.let { stopCapture(it) }
                         }
@@ -110,6 +144,7 @@ class OfflineCaptureViewModel(
                 addAction(RssiCaptureService.ACTION_TIMER_FINISHED)
                 addAction(RssiCaptureService.ACTION_SAMPLE_CAPTURED)
                 addAction(RssiCaptureService.ACTION_SCAN_FAILED)
+                addAction(RssiCaptureService.ACTION_SCAN_BEGINS)
             }
             
             ContextCompat.registerReceiver(
@@ -121,24 +156,77 @@ class OfflineCaptureViewModel(
         }
     }
 
+    /**
+     * Desregistra el broadcast receiver.
+     */
     fun unregisterBroadcastReceiver() {
         broadcastReceiver?.let { receiver ->
             try {
                 getApplication<Application>().unregisterReceiver(receiver)
             } catch (e: IllegalArgumentException) {
                 // Receiver was already unregistered, which is fine
-                Log.d("OfflineCaptureViewModel", "Receiver was already unregistered")
+                Log.d("OnlineCaptureViewModel", "Receiver was already unregistered")
             }
             broadcastReceiver = null
         }
     }
 
-    // PROCESS
-
-    var bleScanner: BleScanner? = null
+    // GESTIÓN DE CONFIGURACIÓN
 
     /**
-     * Verifica si la app está exenta de optimización de batería
+     * Actualiza la URI de la carpeta de salida y evalúa si habilitar el botón de inicio.
+     */
+    fun updateOutputFolderUri(uri: Uri) {
+        outputFolderUri = uri
+        evaluateEnableButtonTest()
+    }
+
+    /**
+     * Evalúa si el botón de inicio debe estar habilitado.
+     */
+    private fun evaluateEnableButtonTest() {
+        initButtonEnabled = outputFolderUri != null && !isRunning
+    }
+
+    /**
+     * Carga la lista de filtros MAC desde un string JSON.
+     */
+    fun loadMacFilterListFromJson(jsonString: String) {
+        try {
+            val type = object : TypeToken<List<String>>() {}.type
+            val loadedList: List<String> = Gson().fromJson(jsonString, type)
+            macFilterList.clear()
+            macFilterList.addAll(loadedList)
+        } catch (e: Exception) {
+            Log.e("OnlineCaptureViewModel", "Error parsing MAC filter JSON", e)
+            throw e
+        }
+    }
+
+    /**
+     * Configura el controlador de imágenes con los parámetros actuales.
+     */
+    private fun configureImageController() {
+        imageController.apply {
+            samplingFrequency = this@OnlineCaptureViewModel.samplingFrequency
+            imageLimit = this@OnlineCaptureViewModel.imageLimit
+            outputFolderUri = this@OnlineCaptureViewModel.outputFolderUri
+        }
+    }
+
+    /**
+     * Obtiene la referencia al controlador de imágenes para uso en la UI.
+     * La UI necesita esta referencia para integrar con OpenCvCamera.
+     * Nota: La configuración se realiza una sola vez en startCapture().
+     */
+    fun getCameraController(): OnlineCaptureController {
+        return imageController
+    }
+
+    // GESTIÓN DE CAPTURA
+
+    /**
+     * Verifica si la app está exenta de optimización de batería.
      */
     fun isBatteryOptimizationIgnored(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -150,7 +238,7 @@ class OfflineCaptureViewModel(
     }
 
     /**
-     * Solicita al usuario que deshabilite la optimización de batería para esta app
+     * Solicita al usuario que deshabilite la optimización de batería para esta app.
      */
     fun requestBatteryOptimizationExemption(context: Context): Intent? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -169,34 +257,33 @@ class OfflineCaptureViewModel(
         }
     }
 
+    /**
+     * Inicia la captura online (BLE + imágenes).
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun startCapture(context: Context): Boolean {
-        // Validate input parameters
+        // Validar parámetros de entrada
         if (outputFolderUri == null) {
-            Log.e("OfflineCaptureViewModel", "Output folder URI is null")
+            Log.e("OnlineCaptureViewModel", "Output folder URI is null")
             return false
         }
         
         if (minutesLimit < 0) {
-            Log.e("OfflineCaptureViewModel", "Minutes limit cannot be negative")
+            Log.e("OnlineCaptureViewModel", "Minutes limit cannot be negative")
             return false
         }
 
         if (initDelaySeconds < 0) {
-            Log.e("OfflineCaptureViewModel", "Initialization delay cannot be negative")
+            Log.e("OnlineCaptureViewModel", "Init delay cannot be negative")
             return false
         }
 
-        // Verificar optimización de batería
+        // Mostrar mensaje sobre optimización de batería si es necesario
         if (!isBatteryOptimizationIgnored(context)) {
-            Log.w("OfflineCaptureViewModel", "Battery optimization is enabled - service may be killed")
-            
-            // Intentar abrir configuración automáticamente
             try {
-                val batteryIntent = requestBatteryOptimizationExemption(context)
-                if (batteryIntent != null) {
-                    context.startActivity(batteryIntent)
+                val intent = requestBatteryOptimizationExemption(context)
+                if (intent != null) {
                     Toast.makeText(
                         context,
                         "Please allow the app to run in background for continuous capture",
@@ -210,7 +297,7 @@ class OfflineCaptureViewModel(
                     ).show()
                 }
             } catch (e: Exception) {
-                Log.e("OfflineCaptureViewModel", "Error opening battery optimization settings", e)
+                Log.e("OnlineCaptureViewModel", "Error opening battery optimization settings", e)
                 Toast.makeText(
                     context,
                     "Could not open battery settings. Please configure it manually in Settings",
@@ -219,10 +306,15 @@ class OfflineCaptureViewModel(
             }
         }
         
+        // Reiniciar contadores
         capturedSamplesCounter = 0
+        capturedImagesCounter = 0
         
         try {
-            // Lanzar el Foreground Service con los parámetros
+            // 1. Configurar e iniciar el controlador de imágenes
+            configureImageController()
+            
+            // 2. Lanzar el RssiCaptureService para captura BLE
             val intent = Intent(context, RssiCaptureService::class.java).apply {
                 putExtra(RssiCaptureService.EXTRA_X, x)
                 putExtra(RssiCaptureService.EXTRA_Y, y)
@@ -233,22 +325,46 @@ class OfflineCaptureViewModel(
                 outputFolderUri?.let { putExtra(RssiCaptureService.EXTRA_OUTPUT_FOLDER_URI, it) }
             }
             context.startForegroundService(intent)
+            
             isRunning = true
+            evaluateEnableButtonTest()
+            
+            Log.i("OnlineCaptureViewModel", "Online capture started - BLE Service + Image Controller")
             return true
         } catch (e: Exception) {
-            Log.e("OfflineCaptureViewModel", "Error starting capture service", e)
+            Log.e("OnlineCaptureViewModel", "Error starting capture service", e)
+            // Si falla, limpiar el estado
+            imageController.finishProcess()
+            isRunning = false
+            evaluateEnableButtonTest()
             return false
         }
     }
 
+    /**
+     * Detiene la captura online (BLE + imágenes).
+     */
     fun stopCapture(context: Context) {
-        // Detener el Foreground Service
+        // 1. Detener el controlador de imágenes
+        imageController.finishProcess()
+        
+        // 2. Detener el RssiCaptureService
         val intent = Intent(context, RssiCaptureService::class.java)
         context.stopService(intent)
+        
         isRunning = false
+        evaluateEnableButtonTest()
+        
+        Log.i("OnlineCaptureViewModel", "Online capture stopped - BLE Service + Image Controller")
     }
 
-    // END - PROCESS
+    /**
+     * Actualiza el contador de imágenes capturadas.
+     * Será llamado por el OnlineCaptureController.
+     */
+    fun updateCapturedImagesCounter(count: Int) {
+        capturedImagesCounter = count
+    }
 
     override fun onCleared() {
         super.onCleared()

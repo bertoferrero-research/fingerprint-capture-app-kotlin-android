@@ -43,7 +43,7 @@
             android:name=".services.DummyService"
             android:exported="false" />
         <service
-            android:name=".services.OfflineCaptureService"
+            android:name=".services.RssiCaptureService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />

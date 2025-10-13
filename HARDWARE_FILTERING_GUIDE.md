@@ -91,10 +91,10 @@ Log.i("App", filterInfo)
 
 ### Uso en Captura Offline
 
-El servicio de captura offline ya está configurado para usar filtrado por hardware:
+El servicio de captura RSSI ya está configurado para usar filtrado por hardware:
 
 ```kotlin
-// En OfflineCaptureService se usa automáticamente
+// En RssiCaptureService se usa automáticamente
 bleScanner = BleScanner(
     filterMacs = macFilterList, // Filtrado por hardware
     filterMacPrefixes = emptyList()
