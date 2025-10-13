@@ -57,13 +57,20 @@ class GlobalPositioner(
             if (markerData != null) {
                 //PROCESS OF CONVERTING THE CAMERA-MARKER INFO INTO CAMERA-WORLD
 
+                // Validación de datos de entrada
+                android.util.Log.d("GlobalPositioner", 
+                    "Processing Marker ${markerData.id}: " +
+                    "Config pos=(${markerData.position.x}, ${markerData.position.y}, ${markerData.position.z}), " +
+                    "Config rot=(${markerData.rotation.roll}, ${markerData.rotation.pitch}, ${markerData.rotation.yaw}), " +
+                    "Detected distance=${detectedMarker.distance}")
+
                 //1 - RVEC to Rotation matrix
                 val r_marker_cam = Mat()
                 Calib3d.Rodrigues(detectedMarker.rvecs, r_marker_cam) // 3x3 rotation matrix
 
                 //2 - Inverse the transformation (get the camera pose relative to the marker)
                 //T_marker_cam = [R | t] → T_cam_marker = [Rᵗ | -Rᵗ * t]
-                val r_cam_marker = r_marker_cam.t() // Transpuesta = inversa ortonormal
+                val r_cam_marker = r_marker_cam.t() // Transpuesta = inversa para matriz ortonormal
                 val t_cam_marker = Mat()
                 Core.gemm(
                     r_cam_marker,
@@ -73,6 +80,9 @@ class GlobalPositioner(
                     0.0,
                     t_cam_marker
                 ) // t' = -Rᵗ * t
+                
+                // Verificar consistencia de convención de coordenadas OpenCV ArUco
+                // ArUco usa Z+ hacia el frente de la cámara, puede necesitar corrección
 
                 //3 - Marker pose in the world
                 val r_marker_world: Mat? = eulerAnglesToRotationMatrix(
@@ -80,6 +90,13 @@ class GlobalPositioner(
                     Math.toRadians(markerData.rotation.pitch.toDouble()),
                     Math.toRadians(markerData.rotation.yaw.toDouble())
                 )
+                
+                // Verificar que la matriz de rotación sea válida
+                if (r_marker_world == null) {
+                    android.util.Log.e("GlobalPositioner", "Failed to create rotation matrix for marker ${markerData.id}")
+                    continue
+                }
+                
                 val t_marker_world = Mat(3, 1, CvType.CV_64F)
                 t_marker_world.put(
                     0,
@@ -89,15 +106,30 @@ class GlobalPositioner(
                     markerData.position.z.toDouble()
                 )
 
-                //4 - Get the camera-world position
+                //4 - Transform camera position to world coordinates
+                // t_cam_world = r_marker_world * t_cam_marker + t_marker_world
                 val t_temp = Mat()
                 Core.gemm(r_marker_world, t_cam_marker, 1.0, Mat(), 0.0, t_temp)
                 val t_cam_world = Mat()
                 Core.add(t_temp, t_marker_world, t_cam_world)
+                
+                // Debug: Log valores intermedios para detectar problemas
+                val t_cam_marker_array = DoubleArray(3)
+                t_cam_marker.get(0, 0, t_cam_marker_array)
+                val t_temp_array = DoubleArray(3)
+                t_temp.get(0, 0, t_temp_array)
+                android.util.Log.d("GlobalPositioner", 
+                    "Marker ${markerData.id} intermediate values: " +
+                    "t_cam_marker=(${t_cam_marker_array[0]}, ${t_cam_marker_array[1]}, ${t_cam_marker_array[2]}), " +
+                    "r_marker_world*t_cam_marker=(${t_temp_array[0]}, ${t_temp_array[1]}, ${t_temp_array[2]})")
 
                 //5 - Extract the camera position
                 val posArray = DoubleArray(3)
                 t_cam_world.get(0, 0, posArray)
+
+                // Validación y log para debugging de coordenadas
+                android.util.Log.d("GlobalPositioner", 
+                    "Marker ${markerData.id}: Raw position = (${posArray[0]}, ${posArray[1]}, ${posArray[2]}), Distance = ${detectedMarker.distance}")
 
                 // Retain the extracted position
                 extractedPositions.add(
