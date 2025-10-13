@@ -5,13 +5,16 @@ package com.bertoferrero.fingerprintcaptureapp.models
  *
  * @property id Marker identifier.
  * @property position Marker position.
+ * @property size Marker size.
  * @property rotation Marker rotation.
+ * @property maxDistanceAllowed Maximum allowed distance for the marker (in millimeters).
  */
 class MarkerDefinition(
     public var id: Int,
     public var position: MarkerPosition,
     public var size: Float,
-    public var rotation: MarkerRotation = MarkerRotation(0f, 0f, 0f)
+    public var rotation: MarkerRotation = MarkerRotation(0f, 0f, 0f),
+    public var maxDistanceAllowed: Float? = null
 ) {
 
     /**
@@ -82,7 +85,7 @@ class MarkerPosition(
 class MarkerRotation(
     public var roll: Float, //x
     public var pitch: Float, //y
-    public var yaw: Float   //y
+    public var yaw: Float   //z
 ){
     /**
      * Property x that gets or sets the rotation around the x-axis.

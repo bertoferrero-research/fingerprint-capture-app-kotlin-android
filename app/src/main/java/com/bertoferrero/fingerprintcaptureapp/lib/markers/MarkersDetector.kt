@@ -39,6 +39,11 @@ class MarkersDetector(
     private val markerSizeMap = markerDefinition.associateBy({ it.id }, { it.size })
 
     /**
+     * Marker max distance map indexed by marker ID.
+     */
+    private val markerMaxDistanceMap = markerDefinition.associateBy({ it.id }, { it.maxDistanceAllowed })
+
+    /**
      * Markers ID to be detected.
      */
     private val markersId = markerDefinition.map { it.id }
@@ -125,6 +130,13 @@ class MarkersDetector(
                     val distance = sqrt(
                         (tvecs[0, 0][0].pow(2) + tvecs[1, 0][0].pow(2) + tvecs[2, 0][0].pow(2))
                     )
+
+                    // Check max distance if defined
+                    val maxDistance = markerMaxDistanceMap[markerId]
+                    if (maxDistance != null && distance > maxDistance){
+                        continue
+                    }
+
 
                     returnData.add(
                         MarkersInFrame(
