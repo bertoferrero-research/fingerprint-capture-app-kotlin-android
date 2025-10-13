@@ -61,6 +61,9 @@ class RssiCaptureService : Service() {
     private var x: Float = 0f
     private var y: Float = 0f
     private var z: Float = 0f
+    // Indicates if the object is being destroyed
+    @Volatile
+    private var isCleaningUp = false
 
     // Output stream for writing CSV in real time
     private var outputStreams: MutableMap<String, java.io.OutputStream> = mutableMapOf()
@@ -68,7 +71,13 @@ class RssiCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     // WakeLock para mantener CPU activa
-    private var wakeLock: PowerManager.WakeLock? = null    
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    // Sobrescribir sendBroadcast para evitar envíos de eventos durante el cierre
+    override fun sendBroadcast(intent: Intent?) {
+        if (isCleaningUp) return
+        super.sendBroadcast(intent)
+    }
 
     /**
      * Punto de entrada cuando se inicia el servicio.
@@ -98,7 +107,7 @@ class RssiCaptureService : Service() {
         startForeground(NOTIFICATION_ID, createNotification())
         
         // Start BLE capture process
-        if(initDelaySeconds == 0) {
+        if (initDelaySeconds == 0) {
             startBleCapture(x, y, z, minutesLimit, macFilterList)
         }
         else{
@@ -117,7 +126,9 @@ class RssiCaptureService : Service() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     override fun onDestroy() {
         android.util.Log.i("RssiCaptureService", "Service being destroyed - cleaning up resources")
-        
+
+        isCleaningUp = true
+
         // Cancelar timers
         timer?.cancel()
         timer = null
