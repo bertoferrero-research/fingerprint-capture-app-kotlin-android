@@ -91,8 +91,13 @@ fun detectMarkers(
                     rvecs,
                     tvecs,
                     false,
-                    Calib3d.SOLVEPNP_ITERATIVE
+                    Calib3d.SOLVEPNP_IPPE_SQUARE
                 )
+
+                // Descarte tvec z en negativo
+                if (tvecs[2, 0][0] < 0) {
+                    continue
+                }
 
                 // Calculate the distance
                 val distance = sqrt(

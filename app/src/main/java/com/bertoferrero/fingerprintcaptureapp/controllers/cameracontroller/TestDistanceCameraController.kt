@@ -86,6 +86,12 @@ class TestDistanceCameraController(
             val arucoDictionary =
                 org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
             val arucoDetectorParameters = org.opencv.objdetect.DetectorParameters()
+            try {
+                // Activar refinamiento de esquinas subpíxel para mayor precisión
+                arucoDetectorParameters.set_cornerRefinementMethod(1) // 1 = CORNER_REFINE_SUBPIX
+            } catch (e: Exception) {
+                // Si no está disponible, usar configuración por defecto
+            }
             arucoDetector =
                 org.opencv.objdetect.ArucoDetector(arucoDictionary, arucoDetectorParameters)
 

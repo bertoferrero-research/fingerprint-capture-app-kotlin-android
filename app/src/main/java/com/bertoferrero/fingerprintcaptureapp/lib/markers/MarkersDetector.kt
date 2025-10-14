@@ -26,12 +26,22 @@ class MarkersDetector(
 ) {
 
     /**
-     * Aruco detector
+     * Aruco detector with improved corner detection accuracy
      */
-    private val arucoDetector = ArucoDetector(
-        Objdetect.getPredefinedDictionary(arucoDictionaryType),
-        DetectorParameters()
-    )
+    private val arucoDetector = run {
+        val detectorParams = DetectorParameters()
+        try {
+            // Intentar activar refinamiento de esquinas subpíxel para mayor precisión
+            // En OpenCV para Android, esto puede mejorar la precisión de detección
+            detectorParams._cornerRefinementMethod = 1 // 1 = CORNER_REFINE_SUBPIX
+        } catch (e: Exception) {
+            // Si no está disponible, usar configuración por defecto
+        }
+        ArucoDetector(
+            Objdetect.getPredefinedDictionary(arucoDictionaryType),
+            detectorParams
+        )
+    }
 
     /**
      * Marker size map indexed by marker ID.
@@ -123,8 +133,13 @@ class MarkersDetector(
                         rvecs,
                         tvecs,
                         false,
-                        Calib3d.SOLVEPNP_ITERATIVE
+                        Calib3d.SOLVEPNP_IPPE_SQUARE
                     )
+
+                    // Descarte tvec z en negativo
+                    if (tvecs[2, 0][0] < 0) {
+                        continue
+                    }
 
                     // Calculate the distance
                     val distance = sqrt(

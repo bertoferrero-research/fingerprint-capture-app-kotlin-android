@@ -32,12 +32,21 @@ class MarkersDetectorNoCalibration(
     private var sensorSizeWidth = 0.0f
 
     /**
-     * Aruco detector
+     * Aruco detector with improved corner detection accuracy
      */
-    private val arucoDetector = ArucoDetector(
-        Objdetect.getPredefinedDictionary(arucoDictionaryType),
-        DetectorParameters()
-    )
+    private val arucoDetector = run {
+        val detectorParams = DetectorParameters()
+        try {
+            // Activar refinamiento de esquinas subpíxel para mayor precisión
+            detectorParams.set_cornerRefinementMethod(1) // 1 = CORNER_REFINE_SUBPIX
+        } catch (e: Exception) {
+            // Si no está disponible, usar configuración por defecto
+        }
+        ArucoDetector(
+            Objdetect.getPredefinedDictionary(arucoDictionaryType),
+            detectorParams
+        )
+    }
 
     init {
         initializeFocalParameters()
