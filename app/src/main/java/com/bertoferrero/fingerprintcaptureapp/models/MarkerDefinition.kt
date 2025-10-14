@@ -7,14 +7,14 @@ package com.bertoferrero.fingerprintcaptureapp.models
  * @property position Marker position.
  * @property size Marker size.
  * @property rotation Marker rotation.
- * @property maxDistanceAllowed Maximum allowed distance for the marker (in millimeters).
+ * @property max_distance Maximum allowed distance for the marker (in millimeters).
  */
 class MarkerDefinition(
     public var id: Int,
     public var position: MarkerPosition,
     public var size: Float,
     public var rotation: MarkerRotation = MarkerRotation(0f, 0f, 0f),
-    public var maxDistanceAllowed: Float? = null
+    public var max_distance: Float? = null
 ) {
 
     /**

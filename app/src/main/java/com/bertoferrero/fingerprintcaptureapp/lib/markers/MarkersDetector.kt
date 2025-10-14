@@ -41,7 +41,7 @@ class MarkersDetector(
     /**
      * Marker max distance map indexed by marker ID.
      */
-    private val markerMaxDistanceMap = markerDefinition.associateBy({ it.id }, { it.maxDistanceAllowed })
+    private val markerMaxDistanceMap = markerDefinition.associateBy({ it.id }, { it.max_distance })
 
     /**
      * Markers ID to be detected.
