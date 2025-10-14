@@ -72,6 +72,55 @@ class MarkersDetector(
     }
 
     /**
+     * Calcula el error de reproyección manualmente para una pose dada.
+     * Basado en el método de ChatGPT - más preciso que confiar en solvePnPGeneric.
+     * 
+     * @param objectPoints Puntos 3D del marcador en coordenadas del objeto
+     * @param imagePoints Puntos 2D detectados en la imagen
+     * @param rvec Vector de rotación de la pose
+     * @param tvec Vector de translación de la pose
+     * @param cameraMatrix Matriz de cámara
+     * @param distCoeffs Coeficientes de distorsión (como MatOfDouble)
+     * @return Error RMS de reproyección en píxeles
+     */
+    private fun calculateReprojectionError(
+        objectPoints: MatOfPoint3f,
+        imagePoints: MatOfPoint2f,
+        rvec: Mat,
+        tvec: Mat,
+        cameraMatrix: Mat,
+        distCoeffs: MatOfDouble
+    ): Double {
+        val projectedPoints = MatOfPoint2f()
+        
+        try {
+            // Proyectar los puntos 3D a 2D usando la pose estimada
+            Calib3d.projectPoints(objectPoints, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints)
+            
+            val projected = projectedPoints.toArray()
+            val detected = imagePoints.toArray()
+            
+            if (projected.size != detected.size) {
+                return Double.MAX_VALUE
+            }
+            
+            var sumSquaredErrors = 0.0
+            for (i in projected.indices) {
+                val dx = projected[i].x - detected[i].x
+                val dy = projected[i].y - detected[i].y
+                sumSquaredErrors += dx * dx + dy * dy
+            }
+            
+            // Retornar error RMS (Root Mean Square)
+            return sqrt(sumSquaredErrors / projected.size)
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return Double.MAX_VALUE
+        }
+    }
+
+    /**
      * Detects markers in the input frame and returns the detected markers with their distance.
      * MarkersInFrame objects will not contain the pose information as the camera matrix and distortion coefficients are not used here.
      */
@@ -124,17 +173,81 @@ class MarkersDetector(
                     val cornerMatOfPoint2f = MatOfPoint2f(corners[i].reshape(2, 4))
 
 
-                    // Estimate the pose
-                    Calib3d.solvePnP(
-                        getObjectPoints(markerId),
-                        cornerMatOfPoint2f,
-                        cameraMatrix,
-                        disctCoeffsMatOfDouble,
-                        rvecs,
-                        tvecs,
-                        false,
-                        Calib3d.SOLVEPNP_IPPE_SQUARE
-                    )
+                    // Estimate the pose usando solvePnPGeneric para obtener ambas soluciones posibles
+                    val rvecsList = mutableListOf<Mat>()
+                    val tvecsList = mutableListOf<Mat>()
+                    val reprojectionErrors = Mat()
+                    
+                    val solutionsCount = try {
+                        // Intentar usar solvePnPGeneric para obtener todas las soluciones posibles
+                        Calib3d.solvePnPGeneric(
+                            getObjectPoints(markerId),
+                            cornerMatOfPoint2f,
+                            cameraMatrix,
+                            disctCoeffsMatOfDouble,
+                            rvecsList,
+                            tvecsList,
+                            false,
+                            Calib3d.SOLVEPNP_IPPE_SQUARE,
+                            rvecs,
+                            tvecs,
+                            reprojectionErrors
+                        )
+                    } catch (e: Exception) {
+                        // Si solvePnPGeneric no está disponible, usar solvePnP tradicional
+                        Calib3d.solvePnP(
+                            getObjectPoints(markerId),
+                            cornerMatOfPoint2f,
+                            cameraMatrix,
+                            disctCoeffsMatOfDouble,
+                            rvecs,
+                            tvecs,
+                            false,
+                            Calib3d.SOLVEPNP_IPPE_SQUARE
+                        )
+                        1 // Una sola solución
+                    }
+                    
+                    // Si hay múltiples soluciones, elegir la mejor basada en error de reproyección real
+                    if (solutionsCount > 1 && rvecsList.isNotEmpty() && tvecsList.isNotEmpty()) {
+                        var bestSolutionIndex = -1
+                        var bestReprojectionError = Double.MAX_VALUE
+                        
+                        for (j in 0 until minOf(solutionsCount, rvecsList.size, tvecsList.size)) {
+                            val currentRvec = rvecsList[j]
+                            val currentTvec = tvecsList[j]
+                            
+                            // Criterio 1: Descartar soluciones con Z negativo (detrás de la cámara)
+                            if (currentTvec[2, 0][0] < 0) {
+                                continue
+                            }
+                            
+                            // Criterio 2: Calcular error de reproyección real usando el método de ChatGPT
+                            val reprojectionError = calculateReprojectionError(
+                                getObjectPoints(markerId),
+                                cornerMatOfPoint2f,
+                                currentRvec,
+                                currentTvec,
+                                cameraMatrix,
+                                disctCoeffsMatOfDouble
+                            )
+                            
+                            // Seleccionar la solución con menor error de reproyección
+                            if (reprojectionError < bestReprojectionError) {
+                                bestReprojectionError = reprojectionError
+                                bestSolutionIndex = j
+                            }
+                        }
+                        
+                        // Usar la mejor solución encontrada (si hay una válida)
+                        if (bestSolutionIndex >= 0 && bestSolutionIndex < rvecsList.size && bestSolutionIndex < tvecsList.size) {
+                            rvecsList[bestSolutionIndex].copyTo(rvecs)
+                            tvecsList[bestSolutionIndex].copyTo(tvecs)
+                        } else {
+                            // Si no hay solución válida, descartar este marcador
+                            continue
+                        }
+                    }
 
                     // Descarte tvec z en negativo
                     if (tvecs[2, 0][0] < 0) {
