@@ -26,21 +26,10 @@ class MarkersDetector(
 ) {
 
     /**
-     * Aruco detector with improved corner detection accuracy
+     * Aruco detector with improved corner detection accuracy and strict parameters
      */
     private val arucoDetector = run {
-        val detectorParams = DetectorParameters()
-        try {
-            // Intentar activar refinamiento de esquinas subpíxel para mayor precisión
-            // En OpenCV para Android, esto puede mejorar la precisión de detección
-            detectorParams._cornerRefinementMethod = 1 // 1 = CORNER_REFINE_SUBPIX
-        } catch (e: Exception) {
-            // Si no está disponible, usar configuración por defecto
-        }
-        ArucoDetector(
-            Objdetect.getPredefinedDictionary(arucoDictionaryType),
-            detectorParams
-        )
+        MarkersDetector.constructArucoDetector(arucoDictionaryType)
     }
 
     /**
@@ -222,7 +211,7 @@ class MarkersDetector(
                                 continue
                             }
                             
-                            // Criterio 2: Calcular error de reproyección real usando el método de ChatGPT
+                            // Criterio 2: Calcular error de reproyección real
                             val reprojectionError = calculateReprojectionError(
                                 getObjectPoints(markerId),
                                 cornerMatOfPoint2f,
@@ -284,6 +273,54 @@ class MarkersDetector(
 
 
         return returnData
+    }
+
+    companion object {
+        
+        /**
+         * Factory method to create an ArucoDetector instance.
+         * 
+         * @param arucoDictionaryType Type of ArUco dictionary to use (default is DICT_6X6_250).
+         * @return Configured ArucoDetector instance.
+         */
+        fun constructArucoDetector(
+                arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
+        ): ArucoDetector {
+            val detectorParams = DetectorParameters()
+            try {
+                // Activar refinamiento de esquinas subpíxel para mayor precisión
+                detectorParams._cornerRefinementMethod = 1 // 1 = CORNER_REFINE_SUBPIX
+
+                // Parámetros recomendados para evitar falsos positivos
+                // Subir minMarkerPerimeterRate para evitar marcadores demasiado pequeños
+                // minMarkerPerimeterRate: tamaño mínimo relativo del perímetro del marcador.
+                //   -> evita analizar contornos demasiado pequeños (ruido o falsos marcadores).
+                //   -> valor típico: 0.03–0.05
+                detectorParams._minMarkerPerimeterRate = 0.05 // Default: 0.03, subir a 0.05-0.1
+
+                // Subir minCornerDistanceRate para evitar esquinas demasiado cercanas
+                // minCornerDistanceRate: distancia mínima entre las esquinas del marcador (relativa al tamaño del marcador).
+                //   -> evita que se detecten esquinas demasiado juntas o solapadas (marcadores deformados o falsos).
+                //   -> valor típico: 0.05
+                detectorParams._minCornerDistanceRate = 0.08 // Default: 0.05, subir a 0.08-0.1
+
+                // Parámetros adicionales para mejorar detección a distancia
+                detectorParams._adaptiveThreshWinSizeMin = 3 // Default: 3
+                detectorParams._adaptiveThreshWinSizeMax = 23 // Default: 23
+                detectorParams._adaptiveThreshWinSizeStep = 10 // Default: 10
+
+                // Mejoras para marcadores pequeños en imagen
+                detectorParams._minMarkerDistanceRate = 0.125 // Default: 0.125 Separación mínima entre marcadores
+                detectorParams._cornerRefinementWinSize = 5 // Default: 5 Ventana para refinamiento
+                detectorParams._cornerRefinementMaxIterations = 30 // Default: 30 Iteraciones de refinamiento
+            } catch (e: Exception) {
+                // Si no están disponibles todos los parámetros, usar configuración por defecto
+            }
+            return ArucoDetector(
+                    Objdetect.getPredefinedDictionary(arucoDictionaryType),
+                    detectorParams
+            )
+        }
     }
 
 }

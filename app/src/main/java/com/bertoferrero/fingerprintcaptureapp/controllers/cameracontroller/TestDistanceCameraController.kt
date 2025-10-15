@@ -7,6 +7,7 @@ import android.hardware.camera2.CameraManager
 import android.util.Log
 import android.widget.Toast
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.detectMarkers
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 import kotlinx.coroutines.yield
@@ -83,17 +84,9 @@ class TestDistanceCameraController(
     override fun initProcess() {
         if (!running) {
             running = true
-            val arucoDictionary =
-                org.opencv.objdetect.Objdetect.getPredefinedDictionary(arucoDictionaryType)
-            val arucoDetectorParameters = org.opencv.objdetect.DetectorParameters()
-            try {
-                // Activar refinamiento de esquinas subpíxel para mayor precisión
-                arucoDetectorParameters.set_cornerRefinementMethod(1) // 1 = CORNER_REFINE_SUBPIX
-            } catch (e: Exception) {
-                // Si no está disponible, usar configuración por defecto
-            }
-            arucoDetector =
-                org.opencv.objdetect.ArucoDetector(arucoDictionary, arucoDetectorParameters)
+            arucoDetector = MarkersDetector.constructArucoDetector(
+                arucoDictionaryType,
+            )
 
         }
     }
