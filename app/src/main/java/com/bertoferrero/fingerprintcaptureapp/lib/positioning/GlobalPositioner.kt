@@ -8,6 +8,8 @@ import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import kotlin.also
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 /**
  * GlobalPositioner is a class that calculates the camera position in the world based on detected ArUco markers.
@@ -34,24 +36,24 @@ class GlobalPositioner(
         ransacThresholdStep: Double = 0.1
         ): Pair<Position, List<PositionFromMarker>>? {
 
-        var detectedMarkers = detectedMarkers
+        var filteredMarkers = detectedMarkers
 
         // Get the closest marker to the camera if it is required
         if (multipleMarkersBehaviour == MultipleMarkersBehaviour.CLOSEST) {// Remove markers not in the config
-            detectedMarkers = detectedMarkers.filter {
+            filteredMarkers = filteredMarkers.filter {
                 markersConfig.any { marker ->
                     marker.id == it.markerId
                 }
             }
-            val closestMarker = detectedMarkers.minByOrNull { it.distance } ?: return null
-            detectedMarkers = listOf(closestMarker)
+            val closestMarker = filteredMarkers.minByOrNull { it.distance } ?: return null
+            filteredMarkers = listOf(closestMarker)
         } else if (closestMarkersUsed > 0) {
-            detectedMarkers = detectedMarkers.sortedBy { it.distance }.take(closestMarkersUsed)
+            filteredMarkers = filteredMarkers.sortedBy { it.distance }.take(closestMarkersUsed)
         }
 
         // CALCULATE THE CAMERA POSITIONS
         val extractedPositions: MutableList<PositionFromMarker> = mutableListOf()
-        for (detectedMarker in detectedMarkers) {
+        for (detectedMarker in filteredMarkers) {
             //Detect the selected marker data
             var markerData = markersConfig.find { marker ->
                 marker.id == detectedMarker.markerId
@@ -84,8 +86,6 @@ class GlobalPositioner(
                     t_cam_marker
                 ) // t' = -Rᵗ * t
                 
-                // Verificar consistencia de convención de coordenadas OpenCV ArUco
-                // ArUco usa Z+ hacia el frente de la cámara, puede necesitar corrección
 
                 //3 - Marker pose in the world
                 val r_marker_world: Mat? = eulerAnglesToRotationMatrix(
@@ -171,10 +171,10 @@ class GlobalPositioner(
 
     fun filterPositionList(positions: List<PositionFromMarker>, arithmeticFilteringMode: MultipleMarkersBehaviour, ransacThreshold: Double = 0.2): Position?{
         //Prepare return data
-        var returnData: Position? = null
+        var returnData: Position?
 
         // -- RANSAC FILTERING
-        var positions = ransacFilterPositions(positions, ransacThreshold)
+        val filteredPositions = ransacFilterPositions(positions, ransacThreshold)
 
 
         // -- ARITHMETIC FILTERING
@@ -182,19 +182,19 @@ class GlobalPositioner(
         // Calculate weighted average of the positions
         if (arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_AVERAGE || arithmeticFilteringMode == MultipleMarkersBehaviour.AVERAGE) {
             returnData = calculateAveragePosition(
-                positions,
+                filteredPositions,
                 arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_AVERAGE
             )
         }
         // Calculate median of the positions
         else if (arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_MEDIAN || arithmeticFilteringMode == MultipleMarkersBehaviour.MEDIAN) {
             returnData = calculateMedianPosition(
-                positions,
+                filteredPositions,
                 arithmeticFilteringMode == MultipleMarkersBehaviour.WEIGHTED_MEDIAN
             )
         } else {
             // Return the closest position
-            returnData = positions.firstOrNull()
+            returnData = filteredPositions.firstOrNull()
         }
 
         return returnData

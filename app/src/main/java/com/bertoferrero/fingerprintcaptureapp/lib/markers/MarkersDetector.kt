@@ -22,7 +22,9 @@ class MarkersDetector(
     var markerDefinition: List<MarkerDefinition>,
     private val arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
     private val cameraMatrix: Mat,
-    private val distCoeffs: Mat
+    private val distCoeffs: Mat,
+    private val markerMaxAngle: Double? = null,
+    private val markerMinPixelSize: Double? = null
 ) {
 
     /**
@@ -238,19 +240,27 @@ class MarkersDetector(
                         }
                     }
 
-                    // Descarte tvec z en negativo
+                    // Descarte tvec z en negativo (cheirality check)
                     if (tvecs[2, 0][0] < 0) {
                         continue
                     }
 
-                    // Calculate the distance
-                    val distance = sqrt(
-                        (tvecs[0, 0][0].pow(2) + tvecs[1, 0][0].pow(2) + tvecs[2, 0][0].pow(2))
-                    )
+                    // Validación de ángulo de vista del marcador (ChatGPT recommendation)
+                    if (markerMaxAngle != null && !validateMarkerViewingAngle(rvecs, tvecs, markerMaxAngle)) {
+                        continue
+                    }
+
+                    // Validación de tamaño mínimo en píxeles (ChatGPT recommendation)
+                    if (markerMinPixelSize != null && !validateMarkerPixelSize(cornerMatOfPoint2f, markerMinPixelSize)) {
+                        continue
+                    }
+
+                    // Calcular la distancia del marcador para validaciones adicionales
+                    val markerDistance = calculateMarkerDistance(tvecs)
 
                     // Check max distance if defined
                     val maxDistance = markerMaxDistanceMap[markerId]
-                    if (maxDistance != null && distance > maxDistance){
+                    if (maxDistance != null && markerDistance > maxDistance){
                         continue
                     }
 
@@ -261,7 +271,7 @@ class MarkersDetector(
                             cornerMatOfPoint2f,
                             rvecs,
                             tvecs,
-                            distance
+                            markerDistance
                         )
                     )
 
@@ -273,6 +283,111 @@ class MarkersDetector(
 
 
         return returnData
+    }
+
+    /**
+     * Valida si el ángulo de vista del marcador es aceptable para una detección precisa.
+     * Calcula el ángulo entre el eje Z del marcador (normal) y la dirección de vista de la cámara.
+     * Marcadores con ángulos muy oblicuos (>75°) pueden producir estimaciones imprecisas.
+     * 
+     * @param rvecs Vector de rotación del marcador
+     * @param tvecs Vector de traducción del marcador
+     * @param maxAngleDegrees Ángulo máximo aceptable en grados (por defecto 75°)
+     * @return true si el ángulo es válido, false si debe ser rechazado
+     */
+    private fun validateMarkerViewingAngle(
+        rvecs: Mat, 
+        tvecs: Mat, 
+        maxAngleDegrees: Double = 75.0
+    ): Boolean {
+        try {
+            // Crear el vector normal del marcador (eje Z apuntando hacia arriba)
+            val markerNormal = Mat(3, 1, org.opencv.core.CvType.CV_64F)
+            markerNormal.put(0, 0, 0.0, 0.0, 1.0) // Eje Z del marcador (normal)
+            
+            // Convertir el vector de rotación a matriz de rotación
+            val r_marker_cam = Mat()
+            org.opencv.calib3d.Calib3d.Rodrigues(rvecs, r_marker_cam)
+            
+            // Transformar el vector normal del marcador a coordenadas de cámara
+            val markerNormalInCamera = Mat()
+            org.opencv.core.Core.gemm(r_marker_cam, markerNormal, 1.0, Mat(), 0.0, markerNormalInCamera)
+            
+            // Obtener la dirección de vista normalizada (desde cámara hacia el marcador)
+            val tvecArray = DoubleArray(3)
+            tvecs.get(0, 0, tvecArray)
+            val markerDistance = calculateMarkerDistance(tvecs)
+            
+            // Calcular el producto punto entre el normal del marcador y la dirección de vista
+            val dotProduct = markerNormalInCamera[0, 0][0] * (tvecArray[0] / markerDistance) + 
+                           markerNormalInCamera[1, 0][0] * (tvecArray[1] / markerDistance) + 
+                           markerNormalInCamera[2, 0][0] * (tvecArray[2] / markerDistance)
+            
+            // Calcular el ángulo entre los vectores
+            val angle = Math.toDegrees(Math.acos(Math.abs(dotProduct).coerceIn(-1.0, 1.0)))
+            
+            // Retornar true si el ángulo es aceptable
+            return angle <= maxAngleDegrees
+            
+        } catch (e: Exception) {
+            // En caso de error, ser conservador y rechazar el marcador
+            android.util.Log.w("MarkersDetector", "Error validating marker viewing angle: ${e.message}")
+            return false
+        }
+    }
+
+    /**
+     * Valida si el tamaño del marcador en píxeles es suficiente para una detección precisa.
+     * Marcadores demasiado pequeños pueden producir estimaciones de pose imprecisas debido
+     * a la falta de resolución en las esquinas detectadas.
+     * 
+     * @param cornerMatOfPoint2f Esquinas detectadas del marcador
+     * @param minPixelSize Tamaño mínimo requerido en píxeles (por defecto 60px)
+     * @return true si el tamaño es válido, false si debe ser rechazado
+     */
+    private fun validateMarkerPixelSize(
+        cornerMatOfPoint2f: MatOfPoint2f, 
+        minPixelSize: Double = 60.0
+    ): Boolean {
+        try {
+            val cornerPoints = cornerMatOfPoint2f.toArray()
+            
+            // Verificar que tenemos al menos 4 esquinas
+            if (cornerPoints.size < 4) {
+                return false
+            }
+            
+            // Calcular el ancho aproximado del marcador en píxeles
+            // Usamos la distancia entre las dos primeras esquinas como referencia
+            val markerWidthPx = kotlin.math.sqrt(
+                (cornerPoints[1].x - cornerPoints[0].x).pow(2) + 
+                (cornerPoints[1].y - cornerPoints[0].y).pow(2)
+            )
+            
+            // Retornar true si el marcador es suficientemente grande
+            return markerWidthPx >= minPixelSize
+            
+        } catch (e: Exception) {
+            // En caso de error, ser conservador y rechazar el marcador
+            android.util.Log.w("MarkersDetector", "Error validating marker pixel size: ${e.message}")
+            return false
+        }
+    }
+
+    /**
+     * Calcula la distancia euclidiana del marcador desde la cámara.
+     * 
+     * @param tvecs Vector de traducción del marcador
+     * @return Distancia en unidades de la calibración de cámara
+     */
+    private fun calculateMarkerDistance(tvecs: Mat): Double {
+        val tvecArray = DoubleArray(3)
+        tvecs.get(0, 0, tvecArray)
+        return kotlin.math.sqrt(
+            tvecArray[0] * tvecArray[0] + 
+            tvecArray[1] * tvecArray[1] + 
+            tvecArray[2] * tvecArray[2]
+        )
     }
 
     companion object {
