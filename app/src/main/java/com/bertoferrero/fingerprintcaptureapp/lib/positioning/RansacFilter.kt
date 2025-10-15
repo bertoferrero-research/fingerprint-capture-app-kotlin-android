@@ -14,9 +14,10 @@ fun ransacFilterPositions(positions: List<PositionFromMarker>, threshold: Double
         return positions
     }
 
-    // If the list has 1 or fewer positions, return it as is (no filtering needed)
+    // If the list has 1 or fewer positions, return an empty list. We require at least 2 points to confirm the position
     if (positions.size <= 1) {
-        return positions
+        return listOf()
+        //return positions // If the list has 1 or fewer positions, return it as is (no filtering needed)
     }
 
     // Calculate the minimum number of inliers required for a valid result

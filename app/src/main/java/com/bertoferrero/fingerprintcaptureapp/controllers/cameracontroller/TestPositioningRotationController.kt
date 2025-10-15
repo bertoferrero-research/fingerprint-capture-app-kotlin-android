@@ -32,7 +32,8 @@ class TestPositioningRotationController(
     public var closestMarkersUsed: Int = 0,
     public var testingImageFrame: CvCameraViewFrameMockFromImage? = null,
     public var testingVideoFrame: File? = null,
-    public var ransacThreshold: Double = 0.2,
+    public var ransacThreshold: Double = 0.1,
+    public var ransacThresholdMax: Double? = 0.4,
     public var sampleSpaceMilliseconds : Int = 1000,
     private val onSamplesLimitReached: (List<TestPositioningRotationSample>) -> Unit,
 ) : ICameraController {
@@ -246,7 +247,8 @@ class TestPositioningRotationController(
                 detectedMarkers,
                 it,
                 closestMarkersUsed,
-                ransacThreshold
+                ransacThreshold,
+                ransacThresholdMax
             ) ?: return rgb
 
 

@@ -7,6 +7,7 @@ import org.opencv.calib3d.Calib3d
 import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import kotlin.also
 
 /**
  * GlobalPositioner is a class that calculates the camera position in the world based on detected ArUco markers.
@@ -28,7 +29,9 @@ class GlobalPositioner(
         detectedMarkers: List<MarkersInFrame>,
         multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.WEIGHTED_AVERAGE,
         closestMarkersUsed: Int = 0,
-        ransacThreshold: Double = 0.2
+        ransacThreshold: Double = 0.2,
+        ransacThresholdMax: Double? = null,
+        ransacThresholdStep: Double = 0.1
         ): Pair<Position, List<PositionFromMarker>>? {
 
         var detectedMarkers = detectedMarkers
@@ -127,6 +130,12 @@ class GlobalPositioner(
                 val posArray = DoubleArray(3)
                 t_cam_world.get(0, 0, posArray)
 
+                //avoid negative Z
+                if (posArray[2] < 0) {
+                    android.util.Log.w("GlobalPositioner", "Discarding marker ${markerData.id} due to negative Z position: ${posArray[2]}")
+                    continue
+                }
+
                 // Validación y log para debugging de coordenadas
                 android.util.Log.d("GlobalPositioner", 
                     "Marker ${markerData.id}: Raw position = (${posArray[0]}, ${posArray[1]}, ${posArray[2]}), Distance = ${detectedMarker.distance}")
@@ -146,7 +155,12 @@ class GlobalPositioner(
 
 
         //Filter data
-        var returnData = filterPositionList(extractedPositions, multipleMarkersBehaviour, ransacThreshold)
+        var ransacThresholdValue = ransacThreshold
+        var returnData: Position?
+        do {
+            returnData = filterPositionList(extractedPositions, multipleMarkersBehaviour, ransacThresholdValue)
+            ransacThresholdValue += ransacThresholdStep
+        }while(returnData == null && ransacThresholdMax != null && ransacThresholdValue <= ransacThresholdMax)
 
         if (returnData == null) {
             return null
