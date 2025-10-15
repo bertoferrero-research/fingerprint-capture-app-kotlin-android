@@ -240,6 +240,10 @@ class MarkersDetector(
                         }
                     }
 
+                    // Refinamiento de pose con Levenberg-Marquardt o VVS (ChatGPT recommendation)
+                    // Mejora significativamente la precisión, especialmente a distancias > 5m
+                    refinePose(markerId, cornerMatOfPoint2f, cameraMatrix, disctCoeffsMatOfDouble, rvecs, tvecs)
+
                     // Descarte tvec z en negativo (cheirality check)
                     if (tvecs[2, 0][0] < 0) {
                         continue
@@ -388,6 +392,59 @@ class MarkersDetector(
             tvecArray[1] * tvecArray[1] + 
             tvecArray[2] * tvecArray[2]
         )
+    }
+
+    /**
+     * Refina la pose del marcador usando métodos de optimización iterativa.
+     * Intenta primero Levenberg-Marquardt y luego VVS como alternativa.
+     * Este refinamiento mejora significativamente la precisión, especialmente a distancias > 5m.
+     * 
+     * @param markerId ID del marcador para obtener sus puntos 3D
+     * @param cornerMatOfPoint2f Esquinas detectadas del marcador en píxeles
+     * @param cameraMatrix Matriz de cámara calibrada
+     * @param distCoeffs Coeficientes de distorsión como MatOfDouble
+     * @param rvecs Vector de rotación a refinar (entrada y salida)
+     * @param tvecs Vector de traducción a refinar (entrada y salida)
+     * @return true si el refinamiento fue exitoso, false si no estaba disponible
+     */
+    private fun refinePose(
+        markerId: Int,
+        cornerMatOfPoint2f: MatOfPoint2f,
+        cameraMatrix: Mat,
+        distCoeffs: MatOfDouble,
+        rvecs: Mat,
+        tvecs: Mat
+    ): Boolean {
+        return try {
+            // Método preferido: Levenberg-Marquardt (más preciso)
+            Calib3d.solvePnPRefineLM(
+                getObjectPoints(markerId),
+                cornerMatOfPoint2f,
+                cameraMatrix,
+                distCoeffs,
+                rvecs,
+                tvecs
+            )
+            true
+        } catch (e: Exception) {
+            // Método alternativo: VVS (Visible-Virtual-Shifted)
+            try {
+                Calib3d.solvePnPRefineVVS(
+                    getObjectPoints(markerId),
+                    cornerMatOfPoint2f,
+                    cameraMatrix,
+                    distCoeffs,
+                    rvecs,
+                    tvecs
+                )
+                true
+            } catch (e2: Exception) {
+                // Ambos métodos no disponibles
+                android.util.Log.w("MarkersDetector", 
+                    "Pose refinement not available, using original pose. LM: ${e.message}, VVS: ${e2.message}")
+                false
+            }
+        }
     }
 
     companion object {

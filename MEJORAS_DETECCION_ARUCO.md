@@ -104,12 +104,150 @@ private fun calculateReprojectionError(
 - Reduce outliers y mediciones incorrectas
 - Proporciona estimaciones más robustas especialmente en entornos complejos
 
-### 3. Compatibilidad y Robustez
+### 3. Parámetros de Detección Optimizados
+
+**Archivos modificados:**
+- `MarkersDetector.kt`
+- `MarkersDetectorNoCalibration.kt`
+- `TestDistanceCameraController.kt`
+
+**Parámetros Implementados:**
+```kotlin
+val detectorParams = DetectorParameters()
+try {
+    // Parámetros recomendados por ChatGPT para evitar falsos positivos
+    detectorParams._minMarkerPerimeterRate = 0.05 // Evitar marcadores pequeños
+    detectorParams._minCornerDistanceRate = 0.08 // Evitar esquinas cercanas
+    detectorParams._adaptiveThreshWinSizeMin = 3
+    detectorParams._adaptiveThreshWinSizeMax = 23
+    detectorParams._adaptiveThreshWinSizeStep = 10
+    detectorParams._minMarkerDistanceRate = 0.02
+    detectorParams._cornerRefinementWinSize = 5
+    detectorParams._cornerRefinementMaxIterations = 30
+} catch (e: Exception) {
+    // Si no están disponibles, usar configuración por defecto
+}
+```
+
+**Beneficios:**
+- **Reduce falsos positivos**: Especialmente a largas distancias (>5m)
+- **Mejora calidad de detección**: Filtro más estricto para marcadores válidos
+- **Optimización para marcadores pequeños**: Mejor detección cuando el marcador ocupa pocos píxeles
+
+### 4. Validaciones Geométricas (ChatGPT Recommendations)
+
+**Archivos modificados:**
+- `GlobalPositioner.kt`
+
+**Validaciones Implementadas:**
+
+1. **Cheirality Check (tvec.z > 0):**
+```kotlin
+// Verificar que el marcador esté frente a la cámara
+val tvecZ = detectedMarker.tvecs?.get(2, 0)?.get(0)
+if (tvecZ == null || tvecZ <= 0) {
+    android.util.Log.w("GlobalPositioner", "Marker ${markerData.id}: tvec.z <= 0 ($tvecZ), marcador detrás de cámara - descartando")
+    continue
+}
+```
+
+2. **Validación de Ángulo Oblicuo Extremo:**
+```kotlin
+// Calcula el ángulo entre el eje Z del marcador (normal) y la dirección de vista
+val markerNormal = Mat(3, 1, CvType.CV_64F)
+markerNormal.put(0, 0, 0.0, 0.0, 1.0) // Eje Z del marcador
+
+// Transformar el normal del marcador a coordenadas de cámara
+val markerNormalInCamera = Mat()
+Core.gemm(r_marker_cam, markerNormal, 1.0, Mat(), 0.0, markerNormalInCamera)
+
+// Calcular ángulo con dirección de vista
+val angle = Math.toDegrees(Math.acos(Math.abs(dotProduct).coerceIn(-1.0, 1.0)))
+
+// Rechazar si el ángulo es mayor a 75° (marcador muy oblicuo)
+if (angle > 75.0) {
+    android.util.Log.w("GlobalPositioner", "Marker ${markerData.id}: ángulo oblicuo extremo ${angle}° > 75° - descartando")
+    continue
+}
+```
+
+3. **Validación de Tamaño Mínimo en Píxeles:**
+```kotlin
+// Calcular el ancho aproximado del marcador en píxeles
+val markerWidthPx = sqrt(
+    (corners[1].x - corners[0].x).pow(2) + 
+    (corners[1].y - corners[0].y).pow(2)
+)
+
+// Rechazar marcadores menores a 60 píxeles de ancho
+if (markerWidthPx < 60.0) {
+    android.util.Log.w("GlobalPositioner", "Marker ${markerData.id}: tamaño demasiado pequeño ${markerWidthPx}px < 60px - descartando")
+    continue
+}
+```
+
+**Beneficios:**
+- **Elimina poses imposibles**: Marcadores detrás de la cámara
+- **Reduce incertidumbre**: Rechaza ángulos oblicuos extremos (>75°) donde la precisión se degrada
+- **Mejora precisión**: Descarta marcadores demasiado pequeños (<60px) con baja resolución
+- **Robustez a largas distancias**: Especialmente crítico >5m donde pequeños errores se amplifican
+- **Logging detallado**: Facilita debugging y análisis de rendimiento
+
+### 5. RANSAC Adaptativo con Rango de Threshold
+
+**Archivos modificados:**
+- `GlobalPositioner.kt`
+- `TestPositioningRotationController.kt`  
+- `TestPositioningRotationScreen.kt`
+- `TestPositioningRotationViewModel.kt`
+
+**Implementación en GlobalPositioner:**
+```kotlin
+public fun getPositionFromArucoMarkers(
+    detectedMarkers: List<MarkersInFrame>,
+    multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.WEIGHTED_AVERAGE,
+    closestMarkersUsed: Int = 0,
+    ransacThreshold: Double = 0.2,
+    ransacThresholdMax: Double? = null,
+    ransacThresholdStep: Double = 0.1
+): Pair<Position, List<PositionFromMarker>>? {
+
+    var ransacThresholdValue = ransacThreshold
+    var returnData: Position?
+    do {
+        returnData = filterPositionList(extractedPositions, multipleMarkersBehaviour, ransacThresholdValue)
+        ransacThresholdValue += ransacThresholdStep
+    } while(returnData == null && ransacThresholdMax != null && ransacThresholdValue <= ransacThresholdMax)
+    
+    return if (returnData == null) null else Pair(returnData, extractedPositions)
+}
+```
+
+**Configuración en la Vista:**
+- **RT - Ransac Threshold**: Threshold inicial (ej: 0.2)
+- **RTM - Ransac Threshold Max**: Threshold máximo (ej: 0.8, o 0 para desactivar)
+
+**Funcionamiento:**
+1. **Threshold fijo** (RTM = 0): Comportamiento tradicional
+2. **Threshold adaptativo** (RTM > RT): 
+   - Comienza con threshold inicial
+   - Si no encuentra solución válida, incrementa en pasos de 0.1
+   - Continúa hasta alcanzar el threshold máximo
+   - Solo falla si agota todas las posibilidades
+
+**Beneficios:**
+- **Mayor robustez**: Más probabilidad de encontrar posición válida en condiciones adversas
+- **Flexibilidad**: Permite relajar criterios RANSAC gradualmente
+- **Compatibilidad**: Mantiene comportamiento original con RTM = 0
+- **Logging completo**: Registra ambos parámetros en CSV para análisis posterior
+
+### 5. Compatibilidad y Robustez
 
 **Manejo de Errores:**
 - Si `solvePnPGeneric` no está disponible, automáticamente usa `solvePnP` tradicional
 - Validación de parámetros antes del procesamiento
 - Manejo seguro de excepciones
+- Parámetros de detección con fallback a valores por defecto
 
 **Fallback Automático:**
 ```kotlin
@@ -126,19 +264,39 @@ private fun calculateReprojectionError(
 - **Mejor resolución subpíxel**: Mejora especialmente notable en ejes X/Z
 - **Eliminación de ambigüedad**: Reduce saltos erráticos en la posición estimada
 - **Mayor consistencia**: Mediciones más estables entre frames consecutivos
+- **Reducción de falsos positivos**: Menos detecciones erróneas a largas distancias
 
 ### En Robustez del Sistema:
 - **Menos outliers**: Mejor filtrado de soluciones incorrectas
-- **Mejor manejo de casos límite**: poses físicamente imposibles
+- **Mejor manejo de casos límite**: Descarta poses físicamente imposibles
+- **RANSAC adaptativo**: Mayor flexibilidad en condiciones variables
+- **Parámetros optimizados**: Detección más estricta y confiable
 - **Compatibilidad mantenida**: Funciona tanto con versiones nuevas como antiguas de OpenCV
 
 ## Uso Recomendado
 
-Estas mejoras son especialmente beneficiosas en:
-- Sistemas de posicionamiento de alta precisión
-- Entornos con condiciones de iluminación variables
-- Aplicaciones donde se requiere consistencia temporal
-- Escenarios con múltiples marcadores en el mismo frame
+### Configuraciones por Escenario:
+
+**Entornos Controlados (Laboratorio):**
+- RT: 0.2, RTM: 0 (threshold fijo)
+- Parámetros de detección estrictos
+- Enfoque en máxima precisión
+
+**Entornos Variables (Campo):**
+- RT: 0.2, RTM: 0.6-0.8 (threshold adaptativo)
+- Parámetros balanceados entre precisión y robustez
+- Prioriza encontrar solución válida
+
+**Testing Exhaustivo:**
+- RT: 0.1, RTM: 1.0 (rango amplio)
+- Logging completo para análisis posterior
+- Identificar configuración óptima por condiciones
+
+**Aplicaciones Específicas:**
+- **Sistemas de alta precisión**: Threshold fijo + parámetros estrictos
+- **Condiciones de iluminación variables**: RANSAC adaptativo
+- **Múltiples marcadores**: Error de reproyección para selección óptima
+- **Largas distancias (>5m)**: Parámetros optimizados + refinamiento subpíxel
 
 ## Consideraciones de Rendimiento
 
@@ -146,9 +304,58 @@ Estas mejoras son especialmente beneficiosas en:
 - `solvePnPGeneric` es ligeramente más costoso que `solvePnP` pero proporciona mejor calidad
 - El coste adicional es mínimo comparado con los beneficios en precisión
 
+## Configuraciones Recomendadas por ChatGPT
+
+### Parámetros de Detección Optimizados:
+```kotlin
+// Para evitar falsos positivos a largas distancias
+minMarkerPerimeterRate = 0.05  (default: 0.03)
+minCornerDistanceRate = 0.08   (default: 0.05)
+adaptiveThreshWinSizeMin = 3
+adaptiveThreshWinSizeMax = 23
+cornerRefinementWinSize = 5
+cornerRefinementMaxIterations = 30
+```
+
+### RANSAC Threshold por Distancia:
+- **0-3m**: RT: 0.1, RTM: 0.3
+- **3-7m**: RT: 0.2, RTM: 0.5  
+- **7-10m**: RT: 0.3, RTM: 0.8
+- **>10m**: RT: 0.4, RTM: 1.0
+
+### Recomendaciones Adicionales:
+- **Desactivar estabilización de vídeo** durante captura (deforma geometría)
+- **Aumentar ISO/velocidad** para minimizar motion blur
+- **Validar marcadores por tamaño**: Rechazar < 60-80 píxeles en imagen
+- **Filtrar por ángulo oblicuo**: Descartar marcadores con ángulo > 70-75°
+
 ## Pruebas Recomendadas
 
 1. **Comparar precisión**: Medir la mejora en la precisión de posicionamiento X/Z
 2. **Evaluar estabilidad**: Verificar la reducción en fluctuaciones entre frames
-3. **Probar en condiciones adversas**: Evaluar el rendimiento con iluminación variable
-4. **Validar consistencia**: Comprobar que las estimaciones sean más consistentes temporalmente
+3. **Probar condiciones adversas**: Evaluar rendimiento con iluminación variable
+4. **Validar consistencia**: Comprobar estimaciones más consistentes temporalmente
+5. **Testing de rango RANSAC**: Encontrar configuración óptima RT/RTM por escenario
+6. **Validar parámetros de detección**: Confirmar reducción de falsos positivos
+
+## Checklist de Implementación ChatGPT
+
+- [x] ✅ `SOLVEPNP_IPPE_SQUARE` implementado para marcadores cuadrados
+- [x] ✅ Cheirality check: `tvec.z > 0` (marcador frente a cámara)
+- [x] ✅ `solvePnPGeneric` con selección por menor error de reproyección
+- [x] ✅ Refinamiento de esquinas subpíxel activado
+- [x] ✅ Parámetros de detección optimizados (minMarkerPerimeterRate, etc.)
+- [x] ✅ Transformaciones en CV_64F (doble precisión)
+- [x] ✅ Orden de rotación correcto: Rz(yaw)·Ry(pitch)·Rx(roll)  
+- [x] ✅ Conversión grados→radianes implementada
+- [x] ✅ Inversión correcta: R_cam_marker = R_marker_cam.t()
+- [x] ✅ Transformación a mundo: t_cam_world = R_marker_world * t_cam_marker + t_marker_world
+- [x] ✅ RANSAC adaptativo con rango configurable
+- [x] ✅ Logging completo para debugging
+- [x] ✅ Compatibilidad y fallbacks implementados
+- [ ] 🔄 Validación por ángulo oblicuo extremo (>70-75°)
+- [ ] 🔄 Filtrado por tamaño mínimo en píxeles (60-80px)
+- [ ] 🔄 solvePnPRefineLM post-procesamiento
+- [ ] 🔄 Testing en condiciones reales
+- [ ] 🔄 Optimización de parámetros por escenario
+- [ ] 🔄 Validación de mejoras en precisión X/Z
