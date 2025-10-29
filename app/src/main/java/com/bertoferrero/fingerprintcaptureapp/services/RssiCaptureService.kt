@@ -254,6 +254,12 @@ class RssiCaptureService : Service() {
      * Escribe una muestra individual al archivo CSV.
      */
     private fun writeSample(sample: RssiSample) {
+        // No escribir si el servicio está limpiando
+        if (isCleaningUp) {
+            android.util.Log.i("RssiCaptureService", "Service is stopping, skipping sample write")
+            return
+        }
+
         try {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
             val dateFormated = dateFormat.format(Date(sample.timestamp))

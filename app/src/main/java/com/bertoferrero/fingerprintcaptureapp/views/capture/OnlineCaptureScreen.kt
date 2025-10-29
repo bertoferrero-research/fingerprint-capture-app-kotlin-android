@@ -87,9 +87,6 @@ class OnlineCaptureScreen : Screen {
                 ConfigurationContent(
                     viewModel = viewModel,
                     context = context,
-                    onStartCapture = { 
-                        viewModel.startCapture(context)
-                    },
                     onNavigateBack = { navigator.pop() }
                 )
             } else {
@@ -113,7 +110,6 @@ class OnlineCaptureScreen : Screen {
 private fun ConfigurationContent(
     viewModel: OnlineCaptureViewModel,
     context: Context,
-    onStartCapture: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     Column(
@@ -352,9 +348,7 @@ private fun ConfigurationContent(
             
             Button(
                 onClick = {
-                    if (viewModel.startCapture(context)) {
-                        onStartCapture()
-                    } else {
+                    if (!viewModel.startCapture(context)) {
                         Toast.makeText(context, "Error al iniciar la captura", Toast.LENGTH_SHORT).show()
                     }
                 },
