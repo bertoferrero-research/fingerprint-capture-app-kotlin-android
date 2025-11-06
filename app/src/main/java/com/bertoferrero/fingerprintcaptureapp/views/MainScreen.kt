@@ -18,14 +18,16 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.capture.OfflineCaptureScreen
 import com.bertoferrero.fingerprintcaptureapp.views.capture.OnlineCaptureScreen
-import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
-import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestDistanceScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningRotationScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningTrilaterationScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestRssiMonitorScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestTrilaterationLibraryScreen
 
+/**
+ * Pantalla principal de navegación de la aplicación.
+ * Organizada en 5 secciones principales según funcionalidad:
+ * - Capture: Funcionalidades de captura de datos
+ * - Processing: Postprocesamiento de datos capturados
+ * - Tools: Herramientas utilitarias para el usuario
+ * - Configuration: Configuración del sistema
+ * - Tests: Pruebas de desarrollo (opcional)
+ */
 class MainScreen : Screen {
     @Composable
     override fun Content() {
@@ -44,6 +46,13 @@ class MainScreen : Screen {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
+                    // Sección 1: Captura de datos
+                    Text(
+                        text = "Data Capture",
+                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
                     Button(
                         onClick = {
                             navigator.push(OfflineCaptureScreen())
@@ -60,21 +69,66 @@ class MainScreen : Screen {
                     ) {
                         Text("Online Capture (BLE + Images)")
                     }
+
+                    // Sección 2: Procesamiento
+                    Text(
+                        text = "Data Processing",
+                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+
                     Button(
                         onClick = {
-                            navigator.push(SettingsScreen())
+                            // TODO: Implementar navegación a BatchImageProcessingScreen
+                            // navigator.push(BatchImageProcessingScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Settings & Tools")
+                        Text("Batch Image Processing (Images → CSV)")
                     }
+                    
+                    Button(
+                        onClick = {
+                            // TODO: Implementar navegación a OnlinePostprocessingScreen
+                            // navigator.push(OnlinePostprocessingScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Online Sample Postprocessing")
+                    }
+
+                    // Sección 3: Otros
+                    Text(
+                        text = "Others",
+                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+                    
+                    Button(
+                        onClick = {
+                            navigator.push(ToolsScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Tools")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            navigator.push(ConfigurationScreen())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Configuration")
+                    }
+                    
                     Button(
                         onClick = {
                             navigator.push(TestsScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Tests")
+                        Text("Development Tests")
                     }
 
                 }

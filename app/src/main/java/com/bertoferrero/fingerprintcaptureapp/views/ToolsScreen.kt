@@ -16,18 +16,15 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.BatchDistanceTestScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestDistanceScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningRotationScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestPositioningTrilaterationScreen
-import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestTrilaterationLibraryScreen
+import com.bertoferrero.fingerprintcaptureapp.views.settings.CameraSamplerScreen
+import com.bertoferrero.fingerprintcaptureapp.views.testscreens.TestRssiMonitorScreen
+import com.bertoferrero.fingerprintcaptureapp.views.tools.MatPhotoCompressionToolScreen
 
 /**
- * Pantalla de tests de desarrollo.
- * Incluye únicamente pruebas técnicas para validación de algoritmos y librerías.
- * Las herramientas del usuario final están en ToolsScreen.
+ * Pantalla de herramientas utilitarias para el usuario final.
+ * Incluye herramientas de muestreo, monitoreo y compresión de datos.
  */
-class TestsScreen : Screen {
+class ToolsScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -40,79 +37,52 @@ class TestsScreen : Screen {
                     .fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
-
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    // Sección de tests de desarrollo - ArUco y distancias
+                    // Sección de herramientas de captura y muestreo
                     Text(
-                        text = "Development Tests",
+                        text = "Capture & Sampling Tools",
                         style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-
+                    
                     Button(
                         onClick = {
-                            navigator.push(TestDistanceScreen())
+                            navigator.push(CameraSamplerScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Distance Test")
+                        Text("Camera Sampler")
                     }
+
                     Button(
                         onClick = {
-                            navigator.push(BatchDistanceTestScreen())
+                            navigator.push(TestRssiMonitorScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Batch Distance Test")
+                        Text("RSSI Monitor")
                     }
 
-                    // Sección de tests de trilateración
+                    // Sección de herramientas de procesamiento
                     Text(
-                        text = "Trilateration Tests",
+                        text = "Processing Tools",
                         style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     )
 
                     Button(
                         onClick = {
-                            navigator.push(TestPositioningTrilaterationScreen())
+                            navigator.push(MatPhotoCompressionToolScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Trilateration Position Test")
+                        Text("MatPhoto Compression Tool")
                     }
-                    Button(
-                        onClick = {
-                            navigator.push(TestTrilaterationLibraryScreen())
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Trilateration Library Test")
-                    }
-
-                    // Sección de tests de ArUco
-                    Text(
-                        text = "ArUco Tests",
-                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                    )
-
-                    Button(
-                        onClick = {
-                            navigator.push(TestPositioningRotationScreen())
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Aruco Position Test")
-                    }
-
                 }
-
             }
         }
-
     }
 }

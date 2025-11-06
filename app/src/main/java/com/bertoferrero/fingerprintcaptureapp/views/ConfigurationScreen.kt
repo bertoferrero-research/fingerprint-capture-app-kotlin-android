@@ -19,9 +19,12 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.settings.BatchCalibrationScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibratingScreen
 import com.bertoferrero.fingerprintcaptureapp.views.settings.CalibrationParametersEditorScreen
-import com.bertoferrero.fingerprintcaptureapp.views.tools.MatPhotoCompressionToolScreen
 
-class SettingsScreen : Screen {
+/**
+ * Pantalla de configuración del sistema.
+ * Incluye configuraciones de calibración de cámara y parámetros del sistema.
+ */
+class ConfigurationScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -34,11 +37,16 @@ class SettingsScreen : Screen {
                     .fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
-
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
+                    // Sección de calibración de cámara
+                    Text(
+                        text = "Camera Calibration",
+                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
 
                     Button(
                         onClick = {
@@ -46,8 +54,9 @@ class SettingsScreen : Screen {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Live Calibrate camera")
+                        Text("Live Camera Calibration")
                     }
+
                     Button(
                         onClick = {
                             navigator.push(BatchCalibrationScreen())
@@ -56,35 +65,17 @@ class SettingsScreen : Screen {
                     ) {
                         Text("Batch Camera Calibration")
                     }
+
                     Button(
                         onClick = {
                             navigator.push(CalibrationParametersEditorScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Calibration Parameters")
+                        Text("Calibration Parameters Editor")
                     }
-
-                    // Separador para herramientas
-                    Text(
-                        text = "Tools",
-                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                    )
-
-                    Button(
-                        onClick = {
-                            navigator.push(MatPhotoCompressionToolScreen())
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("MatPhoto Compression Tool")
-                    }
-
                 }
-
             }
         }
-
     }
 }
