@@ -18,6 +18,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.capture.OfflineCaptureScreen
 import com.bertoferrero.fingerprintcaptureapp.views.capture.OnlineCaptureScreen
+import com.bertoferrero.fingerprintcaptureapp.views.processing.BatchArucoProcessingScreen
 
 /**
  * Pantalla principal de navegación de la aplicación.
@@ -79,12 +80,11 @@ class MainScreen : Screen {
 
                     Button(
                         onClick = {
-                            // TODO: Implementar navegación a BatchImageProcessingScreen
-                            // navigator.push(BatchImageProcessingScreen())
+                            navigator.push(BatchArucoProcessingScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Batch Image Processing (Images → CSV)")
+                        Text("Batch ArUco Processing (Images → CSV)")
                     }
                     
                     Button(
