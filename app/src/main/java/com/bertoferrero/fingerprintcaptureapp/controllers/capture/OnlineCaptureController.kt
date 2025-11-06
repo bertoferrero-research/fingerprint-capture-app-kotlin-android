@@ -54,7 +54,7 @@ class OnlineCaptureController(
     /** Scope para corrutinas de guardado */
     private val saveScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    /** Canal para cola de imágenes a guardar */
+    /** Canal para cola de imágenes a guardar - persiste durante toda la vida del objeto */
     private val saveQueue = Channel<ImageSaveTask>(capacity = Channel.UNLIMITED)
 
     /** Semáforo para limitar trabajos concurrentes de guardado */
@@ -65,17 +65,24 @@ class OnlineCaptureController(
 
     /**
      * Clase que representa una tarea de guardado de imagen.
+     * Incluye outputFolderUri para permitir cambios de directorio entre secuencias.
      */
     private data class ImageSaveTask(
         val mat: Mat,
         val matGray: Mat,
         val timestamp: Long,
-        val imageNumber: Int
+        val imageNumber: Int,
+        val outputFolderUri: Uri
     )
 
 
 
     // INTERFAZ ICameraController
+
+    init {
+        // Iniciar el procesador de cola al crear el objeto
+        startSaveQueueProcessor()
+    }
 
     override fun initProcess() {
         if (!running) {
@@ -83,10 +90,7 @@ class OnlineCaptureController(
             capturedImagesCounter = 0
             lastCaptureTimestamp = 0
             
-            // Iniciar el procesador de cola de guardado
-            startSaveQueueProcessor()
-            
-            Log.i("OnlineCaptureController", "Image capture process initialized with queue system")
+            Log.i("OnlineCaptureController", "Image capture process initialized")
         }
     }
 
@@ -94,11 +98,18 @@ class OnlineCaptureController(
         if (running) {
             running = false
             
-            // Detener el procesador de cola y cerrar canal
-            stopSaveQueueProcessor()
-            
             Log.i("OnlineCaptureController", "Image capture process finished. Total images: $capturedImagesCounter")
         }
+    }
+
+    /**
+     * Destructor para limpiar recursos cuando se destruye el objeto.
+     * Debe ser llamado manualmente cuando ya no se necesite el controlador.
+     */
+    fun destroy() {
+        running = false
+        stopSaveQueueProcessor()
+        saveScope.cancel()
     }
 
     override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
@@ -161,11 +172,19 @@ class OnlineCaptureController(
             Log.d("OnlineCaptureController", "Image captured: $capturedImagesCounter")
 
             // Enviar a cola de guardado (no bloquea el hilo de captura)
-            val saveTask = ImageSaveTask(frameCopy, frameGrayCopy, timestamp, capturedImagesCounter)
-            val offered = saveQueue.trySend(saveTask)
-            if (!offered.isSuccess) {
-                Log.w("OnlineCaptureController", "Failed to queue image $capturedImagesCounter for saving")
-                // Liberar memoria si no se pudo encolar
+            // Incluir el outputFolderUri actual en la tarea
+            val currentOutputFolder = outputFolderUri
+            if (currentOutputFolder != null) {
+                val saveTask = ImageSaveTask(frameCopy, frameGrayCopy, timestamp, capturedImagesCounter, currentOutputFolder)
+                val offered = saveQueue.trySend(saveTask)
+                if (!offered.isSuccess) {
+                    Log.w("OnlineCaptureController", "Failed to queue image $capturedImagesCounter for saving")
+                    // Liberar memoria si no se pudo encolar
+                    frameCopy.release()
+                    frameGrayCopy.release()
+                }
+            } else {
+                Log.w("OnlineCaptureController", "No output folder configured, skipping save for image $capturedImagesCounter")
                 frameCopy.release()
                 frameGrayCopy.release()
             }
@@ -197,7 +216,7 @@ class OnlineCaptureController(
                         launch {
                             saveSemaphore.acquire()
                             try {
-                                saveImageAsync(task.mat, task.matGray, task.timestamp, task.imageNumber)
+                                saveImageAsync(task.mat, task.matGray, task.timestamp, task.imageNumber, task.outputFolderUri)
                             } finally {
                                 // Liberar recursos
                                 task.mat.release()
@@ -219,14 +238,14 @@ class OnlineCaptureController(
 
     /**
      * Detiene el procesador de cola y limpia recursos.
+     * Solo se llama cuando se destruye completamente el objeto.
      */
     private fun stopSaveQueueProcessor() {
+        // Cancelar el job del procesador
         queueProcessorJob?.cancel()
-        queueProcessorJob = null
-        saveQueue.close()
         
-        // Limpiar tareas pendientes
-        saveScope.launch {
+        // Procesar todas las tareas pendientes de forma síncrona
+        runBlocking {
             @OptIn(ExperimentalCoroutinesApi::class)
             while (!saveQueue.isEmpty) {
                 try {
@@ -235,7 +254,7 @@ class OnlineCaptureController(
                         // Guardar imagen antes de liberar
                         saveSemaphore.acquire()
                         try {
-                            saveImageAsync(it.mat, it.matGray, it.timestamp, it.imageNumber)
+                            saveImageAsync(it.mat, it.matGray, it.timestamp, it.imageNumber, it.outputFolderUri)
                         } finally {
                             it.mat.release()
                             it.matGray.release()
@@ -243,19 +262,26 @@ class OnlineCaptureController(
                         }
                     }
                 } catch (e: Exception) {
+                    Log.e("OnlineCaptureController", "Error processing pending save task", e)
                     break
                 }
             }
         }
+        
+        // Cerrar el canal
+        saveQueue.close()
+        queueProcessorJob = null
+        
+        Log.i("OnlineCaptureController", "Save queue processor stopped, all pending tasks processed")
     }
 
     /**
      * Guarda una imagen de forma asíncrona.
      * Llamado desde el procesador de cola con semáforo controlando concurrencia.
      */
-    private suspend fun saveImageAsync(mat: Mat, matGray: Mat, timestamp: Long, imageNumber: Int) {
+    private suspend fun saveImageAsync(mat: Mat, matGray: Mat, timestamp: Long, imageNumber: Int, folderUri: Uri) {
         try {
-            val folder = DocumentFile.fromTreeUri(context, outputFolderUri!!)
+            val folder = DocumentFile.fromTreeUri(context, folderUri)
                 ?: throw IllegalStateException("Cannot access output folder")
 
             val fileName = "image_${String.format("%04d", imageNumber)}_${timestamp}"
@@ -276,7 +302,7 @@ class OnlineCaptureController(
                         out.write(jpgMat.toArray())
                     }
                 }
-                Log.d("OnlineCaptureController", "Preview JPG saved: ${fileName}_preview.jpg")
+                Log.d("OnlineCaptureController", "Image saved: $fileName (folder: ${folder.name})")
             } catch (e: Exception) {
                 // Log pero no fallar - el preview no es crítico
                 Log.w("OnlineCaptureController", "Failed to save JPG preview for $fileName", e)
@@ -286,8 +312,6 @@ class OnlineCaptureController(
             Log.e("OnlineCaptureController", "Failed to save image $imageNumber", e)
             throw e
         }
-
-        
     }
 
     // GETTERS PÚBLICOS
