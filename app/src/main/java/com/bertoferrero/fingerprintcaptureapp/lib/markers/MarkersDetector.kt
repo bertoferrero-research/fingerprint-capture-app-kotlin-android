@@ -143,7 +143,9 @@ class MarkersDetector(
         outputCorners?.clear()
         outputCorners?.addAll(corners)
         outputIds?.release()
-        ids.copyTo(outputIds)
+        if(outputIds !== null) {
+            ids.copyTo(outputIds)
+        }
 
         // Process the detected markers
         if (corners.size > 0 && corners.size.toLong() == ids.total()) {

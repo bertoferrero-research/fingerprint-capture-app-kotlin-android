@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -19,6 +20,8 @@ import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryTy
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMenu
+import com.bertoferrero.fingerprintcaptureapp.viewmodels.processing.BatchArucoProcessingViewModel
+import androidx.lifecycle.ViewModelProvider
 
 /**
  * Pantalla para procesamiento por lotes de imágenes. Permite procesar una carpeta completa de
@@ -30,27 +33,9 @@ class BatchArucoProcessingScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-
-        // Estados de configuración
-        var inputFolderUri by remember { mutableStateOf<Uri?>(null) }
-        var outputFolderUri by remember { mutableStateOf<Uri?>(null) }
-        var markersFileUri by remember { mutableStateOf<Uri?>(null) }
-        var selectedArucoType by remember { mutableStateOf(ArucoDictionaryType.DICT_6X6_250) }
-
-        // Parámetros RANSAC
-        var ransacMinThreshold by remember { mutableStateOf(0.2) }
-        var ransacMaxThreshold by remember { mutableStateOf(0.4) }
-        var ransacStep by remember { mutableStateOf(0.1) }
-
-        // Filtro aritmético
-        var arithmeticFilterType by remember {
-            mutableStateOf(MultipleMarkersBehaviour.WEIGHTED_MEDIAN)
-        }
-
-        // Estado de procesamiento
-        var isProcessing by remember { mutableStateOf(false) }
-        var processedImages by remember { mutableStateOf(0) }
-        var totalImages by remember { mutableStateOf(0) }
+        val viewModel = viewModel<BatchArucoProcessingViewModel>(
+            factory = ViewModelProvider.AndroidViewModelFactory.getInstance(context.applicationContext as android.app.Application)
+        )
 
         // Launchers para selección de carpetas y archivos
         val inputFolderLauncher =
@@ -61,7 +46,7 @@ class BatchArucoProcessingScreen : Screen {
                                 it,
                                 Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
-                        inputFolderUri = it
+                        viewModel.updateInputFolderUri(it)
                     }
                 }
 
@@ -74,14 +59,16 @@ class BatchArucoProcessingScreen : Screen {
                                 Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                         )
-                        outputFolderUri = it
+                        viewModel.updateOutputFolderUri(it)
                     }
                 }
 
         val markersFileChooser =
                 rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
                         fileUri: Uri? ->
-                    fileUri?.let { markersFileUri = it }
+                    fileUri?.let { 
+                        viewModel.updateMarkersFileUri(it, context)
+                    }
                 }
 
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -112,7 +99,7 @@ class BatchArucoProcessingScreen : Screen {
                                     modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                        if (inputFolderUri != null) "Input Folder: Selected"
+                                        if (viewModel.inputFolderUri != null) "Input Folder: Selected"
                                         else "Select Input Folder (Images)"
                                 )
                             }
@@ -124,7 +111,7 @@ class BatchArucoProcessingScreen : Screen {
                                     modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                        if (outputFolderUri != null) "Output Folder: Selected"
+                                        if (viewModel.outputFolderUri != null) "Output Folder: Selected"
                                         else "Select Output Folder (CSV)"
                                 )
                             }
@@ -143,8 +130,8 @@ class BatchArucoProcessingScreen : Screen {
                             )
 
                             ArucoTypeDropdownMenu(
-                                    selectedArucoType = selectedArucoType,
-                                    onArucoTypeSelected = { selectedArucoType = it }
+                                    selectedArucoType = viewModel.selectedArucoType,
+                                    onArucoTypeSelected = { viewModel.updateArucoType(it) }
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -156,7 +143,7 @@ class BatchArucoProcessingScreen : Screen {
                                     modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                        if (markersFileUri != null) "Markers File: Selected"
+                                        if (viewModel.markersFileUri != null) "Markers File: Selected"
                                         else "Select Markers Definition File (JSON)"
                                 )
                             }
@@ -175,24 +162,42 @@ class BatchArucoProcessingScreen : Screen {
                             )
 
                             NumberField<Double>(
-                                    value = ransacMinThreshold,
-                                    onValueChange = { ransacMinThreshold = it },
+                                    value = viewModel.ransacMinThreshold,
+                                    onValueChange = { 
+                                        viewModel.updateRansacParameters(
+                                            it, 
+                                            viewModel.ransacMaxThreshold, 
+                                            viewModel.ransacStep
+                                        ) 
+                                    },
                                     label = { Text("Minimum Threshold") }
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
 
                             NumberField<Double>(
-                                    value = ransacMaxThreshold,
-                                    onValueChange = { ransacMaxThreshold = it },
+                                    value = viewModel.ransacMaxThreshold,
+                                    onValueChange = { 
+                                        viewModel.updateRansacParameters(
+                                            viewModel.ransacMinThreshold, 
+                                            it, 
+                                            viewModel.ransacStep
+                                        ) 
+                                    },
                                     label = { Text("Maximum Threshold") }
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
 
                             NumberField<Double>(
-                                    value = ransacStep,
-                                    onValueChange = { ransacStep = it },
+                                    value = viewModel.ransacStep,
+                                    onValueChange = { 
+                                        viewModel.updateRansacParameters(
+                                            viewModel.ransacMinThreshold, 
+                                            viewModel.ransacMaxThreshold, 
+                                            it
+                                        ) 
+                                    },
                                     label = { Text("Step Size") }
                             )
                         }
@@ -220,8 +225,8 @@ class BatchArucoProcessingScreen : Screen {
                                                     "Weighted median",
                                                     "Median"
                                             ),
-                                    onOptionSelected = { arithmeticFilterType = it },
-                                    selectedValue = arithmeticFilterType
+                                    onOptionSelected = { viewModel.updateArithmeticFilterType(it) },
+                                    selectedValue = viewModel.arithmeticFilterType
                             )
                         }
                     }
@@ -237,42 +242,70 @@ class BatchArucoProcessingScreen : Screen {
                                     modifier = Modifier.padding(bottom = 8.dp)
                             )
 
-                            if (isProcessing) {
+                            // Mostrar errores si existen
+                            viewModel.errorMessage?.let { error ->
+                                Text(
+                                    text = error,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            if (viewModel.isProcessing) {
                                 LinearProgressIndicator(
                                         progress =
-                                                if (totalImages > 0)
-                                                        processedImages.toFloat() /
-                                                                totalImages.toFloat()
+                                                if (viewModel.totalImages > 0)
+                                                        viewModel.processedImages.toFloat() /
+                                                                viewModel.totalImages.toFloat()
                                                 else 0f,
                                         modifier = Modifier.fillMaxWidth()
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Processing: $processedImages / $totalImages images")
+                                Text("Processing: ${viewModel.processedImages} / ${viewModel.totalImages} images")
+                                
+                                if (viewModel.currentImageName.isNotEmpty()) {
+                                    Text(
+                                        text = "Current: ${viewModel.currentImageName}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+
+                            if (viewModel.processingComplete) {
+                                Text(
+                                    text = "✅ Processing completed successfully!",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Button(
                                     onClick = {
-                                        if (!isProcessing) {
-                                            // TODO: Iniciar procesamiento
-                                            isProcessing = true
+                                        if (!viewModel.isProcessing) {
+                                            viewModel.startProcessing(context)
                                         } else {
-                                            // TODO: Detener procesamiento
-                                            isProcessing = false
+                                            viewModel.stopProcessing()
                                         }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
-                                    enabled =
-                                            inputFolderUri != null &&
-                                                    outputFolderUri != null &&
-                                                    markersFileUri != null
-                            ) { Text(if (isProcessing) "Stop Processing" else "Start Processing") }
+                                    enabled = viewModel.canStartProcessing || viewModel.isProcessing
+                            ) { 
+                                Text(
+                                    if (viewModel.isProcessing) "Stop Processing" 
+                                    else "Start Processing"
+                                ) 
+                            }
 
-                            if (!isProcessing) {
+                            if (!viewModel.isProcessing) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Button(
-                                        onClick = { navigator.pop() },
+                                        onClick = { 
+                                            viewModel.resetProcessing()
+                                            navigator.pop() 
+                                        },
                                         modifier = Modifier.fillMaxWidth()
                                 ) { Text("Back") }
                             }
