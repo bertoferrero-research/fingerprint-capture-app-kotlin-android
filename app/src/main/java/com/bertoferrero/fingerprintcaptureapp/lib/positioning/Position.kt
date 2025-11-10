@@ -45,7 +45,8 @@ class PositionFromMarker(
     var distance: Double? = null,
     x: Double = 0.0,
     y: Double = 0.0,
-    z: Double = 0.0
+    z: Double = 0.0,
+    val sourceIdentifier: String? = null
 ) : Position(x, y, z) {
     override fun toString(): String {
         return "PositionFromMarker(markerId=$markerId, x=$x, y=$y, z=$z, distance=$distance)"

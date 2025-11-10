@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -204,12 +205,12 @@ class BatchArucoProcessingScreen : Screen {
                     }
                 }
 
-                // Sección de filtro aritmético
+                // Sección de filtro aritmético y opciones de procesamiento
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                    text = "Arithmetic Filter",
+                                    text = "Processing Options",
                                     style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier.padding(bottom = 8.dp)
                             )
@@ -228,6 +229,39 @@ class BatchArucoProcessingScreen : Screen {
                                     onOptionSelected = { viewModel.updateArithmeticFilterType(it) },
                                     selectedValue = viewModel.arithmeticFilterType
                             )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Unify Poses",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.alignByBaseline()
+                                )
+                                Switch(
+                                    checked = viewModel.unifyPoses,
+                                    onCheckedChange = { viewModel.updateUnifyPoses(it) }
+                                )
+                            }
+
+                            if (viewModel.unifyPoses) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Process all images together to improve positioning accuracy by combining markers from multiple images.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Process each image individually for detailed per-image analysis.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

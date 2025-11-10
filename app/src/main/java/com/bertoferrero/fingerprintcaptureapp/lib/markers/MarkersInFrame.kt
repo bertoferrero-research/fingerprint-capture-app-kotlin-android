@@ -20,5 +20,6 @@ class MarkersInFrame(
     val rvecs: Mat?,
     val tvecs: Mat?,
     val distance: Double,
-    val markerWidthPixels: Double? = null
+    val markerWidthPixels: Double? = null,
+    val sourceIdentifier: String? = null
 )

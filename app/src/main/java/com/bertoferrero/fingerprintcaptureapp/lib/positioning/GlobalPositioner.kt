@@ -147,7 +147,8 @@ class GlobalPositioner(
                         x = posArray[0],
                         y = posArray[1],
                         z = posArray[2],
-                        distance = detectedMarker.distance
+                        distance = detectedMarker.distance,
+                        sourceIdentifier = detectedMarker.sourceIdentifier
                     )
                 )
             }

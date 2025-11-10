@@ -12,6 +12,8 @@ import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import org.opencv.core.Mat
 import java.io.InputStream
+import kotlin.collections.mutableListOf
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersInFrame
 
 /**
  * Controlador para procesamiento por lotes de imágenes ArUco.
@@ -76,91 +78,160 @@ class BatchArucoProcessingController(
     
     
     /**
-     * Procesa una imagen desde DocumentFile - función directora principal.
+     * Procesa una sola imagen desde DocumentFile - método de compatibilidad.
      */
     fun processImageFile(context: Context, imageFile: DocumentFile): BatchProcessingResult {
-        val fileName = imageFile.name ?: "unknown"
-        
-        return try {
-            // Solo soportar archivos MatPhoto
-            if (!fileName.endsWith(".matphoto", ignoreCase = true)) {
-                return BatchProcessingResult(
-                    fileName = fileName,
-                    success = false,
-                    error = "Only MatPhoto files (.matphoto) are supported",
-                    detectedPositions = emptyList()
-                )
-            }
-            
-            context.contentResolver.openInputStream(imageFile.uri)?.use { inputStream ->
-                // 1. Cargar el Mat desde el archivo
-                val mat = MatFromFile(inputStream)
-                
-                // 2. Obtener las posiciones de los marcadores ArUco
-                val positionResult = getPositionsFromAruco(mat)
-                
-                // 3. Componer el resultado final
-                val detectedPositions = composeDetectedPositions(positionResult, mat)
-                
-                BatchProcessingResult(
-                    fileName = fileName,
-                    success = true,
-                    error = null,
-                    detectedPositions = detectedPositions
-                )
-                
-            } ?: BatchProcessingResult(
-                fileName = fileName,
-                success = false,
-                error = "Cannot open file stream",
-                detectedPositions = emptyList()
-            )
-        } catch (e: Exception) {
-            BatchProcessingResult(
-                fileName = fileName,
-                success = false,
-                error = e.message ?: "Unknown error",
-                detectedPositions = emptyList()
-            )
-        }
+        return processImageFiles(context, listOf(imageFile))
     }
+
     
     /**
-     * Obtiene las posiciones de marcadores ArUco desde una imagen Mat.
-     * Retorna el resultado del GlobalPositioner.getPositionFromArucoMarkers.
+     * Procesa múltiples imágenes desde DocumentFiles - función directora principal.
+     * Unifica todos los marcadores detectados en las imágenes para mejorar la precisión del posicionamiento.
      */
-    private fun getPositionsFromAruco(mat: Mat): Pair<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position, List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position>>? {
-        if (mat.empty()) {
-            return null
+    fun processImageFiles(context: Context, imageFiles: List<DocumentFile>): BatchProcessingResult {
+        // 1. Procesar cada imagen y recolectar marcadores
+        val (processedImages, markersPool) = processIndividualImages(context, imageFiles)
+        
+        // 2. Verificar si tenemos marcadores para procesar
+        if (markersPool.isEmpty()) {
+            return BatchProcessingResult(
+                success = false,
+                error = "No ArUco markers detected in any of the processed images",
+                detectedPositions = emptyList(),
+                processedImages = processedImages
+            )
         }
         
-        // Crear mock frame para el detector
-        val mockFrame = CvCameraViewFrameMockFromImage(mat)
-        
-        // Detectar marcadores en la imagen
-        val detectedMarkers = markersDetector?.detectMarkers(mockFrame) ?: emptyList()
-        
-        if (detectedMarkers.isEmpty()) {
-            return null
+        // 3. Calcular posiciones globales usando todos los marcadores detectados
+        var globalError: String? = null
+        val positionResult = try {
+            globalPositioner?.getPositionFromArucoMarkers(
+                detectedMarkers = markersPool,
+                multipleMarkersBehaviour = multipleMarkersBehaviour,
+                closestMarkersUsed = 0, // Usar todos los marcadores detectados
+                ransacThreshold = ransacMinThreshold,
+                ransacThresholdMax = if (ransacMaxThreshold > ransacMinThreshold) ransacMaxThreshold else null,
+                ransacThresholdStep = ransacStep
+            )
+        } catch (e: Exception) {
+            globalError = "Error during position calculation: ${e.message}"
+            null
         }
         
-        // Calcular posición global usando los marcadores detectados
-        return globalPositioner?.getPositionFromArucoMarkers(
-            detectedMarkers = detectedMarkers,
-            multipleMarkersBehaviour = multipleMarkersBehaviour,
-            closestMarkersUsed = 0, // Usar todos los marcadores detectados
-            ransacThreshold = ransacMinThreshold,
-            ransacThresholdMax = if (ransacMaxThreshold > ransacMinThreshold) ransacMaxThreshold else null,
-            ransacThresholdStep = ransacStep
+        // 4. Componer resultado final
+        val detectedPositions = if (globalError == null) {
+            composeDetectedPositions(positionResult)
+        } else {
+            mutableListOf()
+        }
+        
+        return BatchProcessingResult(
+            success = globalError == null,
+            error = globalError,
+            detectedPositions = detectedPositions,
+            processedImages = processedImages
         )
     }
     
     /**
-     * Compone la lista final de DetectedMarkerPosition a partir del resultado de getPositionsFromAruco.
+     * Procesa cada imagen individual y recolecta marcadores detectados.
+     * Retorna una pareja con la información de procesamiento y el pool de marcadores.
+     */
+    private fun processIndividualImages(
+        context: Context, 
+        imageFiles: List<DocumentFile>
+    ): Pair<List<ImageProcessingInfo>, List<MarkersInFrame>> {
+        val processedImages = mutableListOf<ImageProcessingInfo>()
+        var markersPool: List<MarkersInFrame> = mutableListOf()
+        
+        for (imageFile in imageFiles) {
+            val fileName = imageFile.name ?: "unknown"
+            
+            try {
+                // Solo soportar archivos MatPhoto
+                if (!fileName.endsWith(".matphoto", ignoreCase = true)) {
+                    processedImages.add(
+                        ImageProcessingInfo(
+                            fileName = fileName,
+                            success = false,
+                            error = "Unsupported file format (only .matphoto supported)",
+                            markerCount = 0
+                        )
+                    )
+                    continue
+                }
+                
+                context.contentResolver.openInputStream(imageFile.uri)?.use { inputStream ->
+                    // Cargar el Mat desde el archivo
+                    val mat = MatFromFile(inputStream)
+                    
+                    if (mat.empty()) {
+                        processedImages.add(
+                            ImageProcessingInfo(
+                                fileName = fileName,
+                                success = false,
+                                error = "Empty or corrupted image",
+                                markerCount = 0
+                            )
+                        )
+                        return@use
+                    }
+                    
+                    // Detectar marcadores ArUco
+                    val detectedMarkers = markersDetector!!.detectMarkersFromMat(
+                        inputMat = mat,
+                        sourceIdentifier = fileName
+                    )
+                    
+                    // Añadir marcadores al pool global
+                    markersPool = markersPool.plus(detectedMarkers)
+                    
+                    // Registrar información de procesamiento de esta imagen
+                    processedImages.add(
+                        ImageProcessingInfo(
+                            fileName = fileName,
+                            success = true,
+                            error = null,
+                            markerCount = detectedMarkers.size
+                        )
+                    )
+                    
+                    // Liberar memoria del Mat
+                    mat.release()
+                    
+                } ?: run {
+                    processedImages.add(
+                        ImageProcessingInfo(
+                            fileName = fileName,
+                            success = false,
+                            error = "Cannot open file stream",
+                            markerCount = 0
+                        )
+                    )
+                }
+                
+            } catch (e: Exception) {
+                processedImages.add(
+                    ImageProcessingInfo(
+                        fileName = fileName,
+                        success = false,
+                        error = e.message ?: "Unknown error during processing",
+                        markerCount = 0
+                    )
+                )
+            }
+        }
+        
+        return Pair(processedImages, markersPool)
+    }
+    
+    
+    /**
+     * Compone la lista final de DetectedMarkerPosition.
      */
     private fun composeDetectedPositions(
-        positionResult: Pair<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position, List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position>>?,
-        mat: Mat
+        positionResult: Pair<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position, List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position>>?
     ): MutableList<DetectedMarkerPosition> {
         val positions = mutableListOf<DetectedMarkerPosition>()
         
@@ -178,7 +249,8 @@ class BatchArucoProcessingController(
                         z = globalPosition.z,
                         ransacThreshold = ransacMinThreshold, // Threshold inicial usado
                         isGlobalPosition = true,
-                        markerCount = markerCount
+                        markerCount = markerCount,
+                        sourceIdentifier = null
                     )
                 )
             }
@@ -198,15 +270,13 @@ class BatchArucoProcessingController(
                             z = markerPos.z,
                             ransacThreshold = ransacMinThreshold, // Threshold inicial usado
                             isGlobalPosition = false,
-                            markerCount = 1
+                            markerCount = 1,
+                            sourceIdentifier = positionFromMarker?.sourceIdentifier
                         )
                     )
                 }
             }
         }
-        
-        // Liberar memoria del Mat
-        mat.release()
         
         return positions
     }
@@ -230,13 +300,23 @@ class BatchArucoProcessingController(
     fun isCalibrationParametersLoaded(): Boolean = isCalibrationLoaded
     
     /**
-     * Clase de datos para el resultado del procesamiento de un archivo.
+     * Clase de datos para el resultado del procesamiento de múltiples archivos.
      */
     data class BatchProcessingResult(
+        val success: Boolean,
+        val error: String? = null,
+        val detectedPositions: List<DetectedMarkerPosition>,
+        val processedImages: List<ImageProcessingInfo>
+    )
+    
+    /**
+     * Información del procesamiento de una imagen individual.
+     */
+    data class ImageProcessingInfo(
         val fileName: String,
         val success: Boolean,
         val error: String? = null,
-        val detectedPositions: List<DetectedMarkerPosition>
+        val markerCount: Int = 0
     )
     
     /**
@@ -249,6 +329,7 @@ class BatchArucoProcessingController(
         val z: Double,
         val ransacThreshold: Double,
         val isGlobalPosition: Boolean = false,
-        val markerCount: Int = 1
+        val markerCount: Int = 1,
+        val sourceIdentifier: String? = null
     )
 }

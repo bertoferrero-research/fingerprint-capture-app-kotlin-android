@@ -1,6 +1,7 @@
 package com.bertoferrero.fingerprintcaptureapp.lib.markers
 
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
+import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.calib3d.Calib3d
 import org.opencv.core.Mat
@@ -112,6 +113,28 @@ class MarkersDetector(
     }
 
     /**
+     * Detects markers in the input Mat and returns the detected markers with their distance.
+     * This function prepares a mock CvCameraViewFrame from the input Mat and calls the main detectMarkers function.
+     */
+    fun detectMarkersFromMat(
+        inputMat: Mat,
+        outputCorners: MutableList<Mat>? = null,
+        outputIds: Mat? = null,
+        sourceIdentifier: String? = null
+    ): MutableList<MarkersInFrame> {
+        //Prepare a mock CvCameraViewFrame from the input Mat
+        val mockFrame = CvCameraViewFrameMockFromImage(inputMat)
+
+        //Use the main detectMarkers function
+        return detectMarkers(
+            inputFrame = mockFrame,
+            outputCorners = outputCorners,
+            outputIds = outputIds,
+            sourceIdentifier = sourceIdentifier
+        )
+    }
+
+    /**
      * Detects markers in the input frame and returns the detected markers with their distance.
      * MarkersInFrame objects will not contain the pose information as the camera matrix and distortion coefficients are not used here.
      */
@@ -119,6 +142,7 @@ class MarkersDetector(
         inputFrame: CameraBridgeViewBase.CvCameraViewFrame,
         outputCorners: MutableList<Mat>? = null,
         outputIds: Mat? = null,
+        sourceIdentifier: String? = null
     ): MutableList<MarkersInFrame> {
         //Prepare return
         val returnData: MutableList<MarkersInFrame> = mutableListOf()
@@ -270,14 +294,23 @@ class MarkersDetector(
                         continue
                     }
 
+                    // Calcular el tamaño del marcador en píxeles para el retorno
+                    val cornerPoints = cornerMatOfPoint2f.toArray()
+                    val markerWidthPx = kotlin.math.sqrt(
+                                    (cornerPoints[1].x - cornerPoints[0].x).pow(2) + 
+                                    (cornerPoints[1].y - cornerPoints[0].y).pow(2)
+                                )
 
+                    // Agregar el marcador detectado a la lista de retorno
                     returnData.add(
                         MarkersInFrame(
                             markerId,
                             cornerMatOfPoint2f,
                             rvecs,
                             tvecs,
-                            markerDistance
+                            markerDistance,
+                            markerWidthPx,
+                            sourceIdentifier
                         )
                     )
 
