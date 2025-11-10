@@ -105,6 +105,7 @@ class BatchArucoProcessingController(
         
         // 3. Calcular posiciones globales usando todos los marcadores detectados
         var globalError: String? = null
+        var ransacResult: MutableList<com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker> = mutableListOf()
         val positionResult = try {
             globalPositioner?.getPositionFromArucoMarkers(
                 detectedMarkers = markersPool,
@@ -112,7 +113,8 @@ class BatchArucoProcessingController(
                 closestMarkersUsed = 0, // Usar todos los marcadores detectados
                 ransacThreshold = ransacMinThreshold,
                 ransacThresholdMax = if (ransacMaxThreshold > ransacMinThreshold) ransacMaxThreshold else null,
-                ransacThresholdStep = ransacStep
+                ransacThresholdStep = ransacStep,
+                outputRansacResult = ransacResult
             )
         } catch (e: Exception) {
             globalError = "Error during position calculation: ${e.message}"
@@ -121,7 +123,7 @@ class BatchArucoProcessingController(
         
         // 4. Componer resultado final
         val detectedPositions = if (globalError == null) {
-            composeDetectedPositions(positionResult)
+            composeDetectedPositions(positionResult, ransacResult)
         } else {
             mutableListOf()
         }
@@ -231,7 +233,8 @@ class BatchArucoProcessingController(
      * Compone la lista final de DetectedMarkerPosition.
      */
     private fun composeDetectedPositions(
-        positionResult: Pair<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position, List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position>>?
+        positionResult: Pair<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position, List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position>>?,
+        ransacResult: MutableList<com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker>
     ): MutableList<DetectedMarkerPosition> {
         val positions = mutableListOf<DetectedMarkerPosition>()
         
@@ -250,7 +253,8 @@ class BatchArucoProcessingController(
                         ransacThreshold = ransacMinThreshold, // Threshold inicial usado
                         isGlobalPosition = true,
                         markerCount = markerCount,
-                        sourceIdentifier = null
+                        sourceIdentifier = null,
+                        ransacResult = ransacResult
                     )
                 )
             }
@@ -261,6 +265,11 @@ class BatchArucoProcessingController(
                     // Convertir a PositionFromMarker para acceder al markerId
                     val positionFromMarker = markerPos as? com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker
                     val markerId = positionFromMarker?.markerId ?: 0
+
+                    // comprobamos si el par markerId y sourceIdentifier está en los resultados RANSAC
+                    val isRansacExcluded = ransacResult.none { 
+                        it.markerId == markerId && it.sourceIdentifier == positionFromMarker?.sourceIdentifier 
+                    }
                     
                     positions.add(
                         DetectedMarkerPosition(
@@ -271,7 +280,9 @@ class BatchArucoProcessingController(
                             ransacThreshold = ransacMinThreshold, // Threshold inicial usado
                             isGlobalPosition = false,
                             markerCount = 1,
-                            sourceIdentifier = positionFromMarker?.sourceIdentifier
+                            sourceIdentifier = positionFromMarker?.sourceIdentifier,
+                            ransacResult = null,
+                            ransacExcluded = isRansacExcluded
                         )
                     )
                 }
@@ -330,6 +341,8 @@ class BatchArucoProcessingController(
         val ransacThreshold: Double,
         val isGlobalPosition: Boolean = false,
         val markerCount: Int = 1,
-        val sourceIdentifier: String? = null
+        val ransacResult: List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker>? = null,
+        val ransacExcluded: Boolean? = null,
+        val sourceIdentifier: String? = null,
     )
 }

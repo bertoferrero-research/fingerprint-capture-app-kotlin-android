@@ -33,7 +33,8 @@ class GlobalPositioner(
         closestMarkersUsed: Int = 0,
         ransacThreshold: Double = 0.2,
         ransacThresholdMax: Double? = null,
-        ransacThresholdStep: Double = 0.1
+        ransacThresholdStep: Double = 0.1,
+        outputRansacResult: MutableList<PositionFromMarker>? = null
         ): Pair<Position, List<PositionFromMarker>>? {
 
         var filteredMarkers = detectedMarkers
@@ -159,7 +160,7 @@ class GlobalPositioner(
         var ransacThresholdValue = ransacThreshold
         var returnData: Position?
         do {
-            returnData = filterPositionList(extractedPositions, multipleMarkersBehaviour, ransacThresholdValue)
+            returnData = filterPositionList(extractedPositions, multipleMarkersBehaviour, ransacThresholdValue, outputRansacResult)
             ransacThresholdValue += ransacThresholdStep
         }while(returnData == null && ransacThresholdMax != null && ransacThresholdValue <= ransacThresholdMax)
 
@@ -170,13 +171,16 @@ class GlobalPositioner(
         return Pair(returnData, extractedPositions)
     }
 
-    fun filterPositionList(positions: List<PositionFromMarker>, arithmeticFilteringMode: MultipleMarkersBehaviour, ransacThreshold: Double = 0.2): Position?{
+    fun filterPositionList(positions: List<PositionFromMarker>, arithmeticFilteringMode: MultipleMarkersBehaviour, ransacThreshold: Double = 0.2, outputRansacResult: MutableList<PositionFromMarker>? = null): Position?{
         //Prepare return data
         var returnData: Position?
 
         // -- RANSAC FILTERING
         val filteredPositions = ransacFilterPositions(positions, ransacThreshold)
-
+        if(outputRansacResult != null){
+            outputRansacResult.clear()
+            outputRansacResult.addAll(filteredPositions)
+        }
 
         // -- ARITHMETIC FILTERING
 

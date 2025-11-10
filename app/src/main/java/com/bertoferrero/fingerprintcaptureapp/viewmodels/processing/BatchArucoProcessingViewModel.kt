@@ -315,7 +315,7 @@ class BatchArucoProcessingViewModel(
     ) {
 
         
-        val csvHeader = "filename,marker_id,x,y,z,ransac_threshold,filter_type,is_global_position,marker_count,image_markers_detected\n"
+        val csvHeader = "filename,marker_id,x,y,z,ransac_threshold,filter_type,is_global_position,marker_count,image_markers_detected,ransac_population,is_ransac_excluded\n"
         outputStream.write(csvHeader.toByteArray())
 
         // Procesar cada imagen
@@ -337,12 +337,13 @@ class BatchArucoProcessingViewModel(
                         // Escribir resultados al CSV por cada posición detectada
                         if (result.detectedPositions.isNotEmpty()) {
                             for (position in result.detectedPositions) {
-                                val csvLine = "${imageInfo.fileName},${position.markerId},${position.x},${position.y},${position.z},${position.ransacThreshold},${arithmeticFilterType.name},${position.isGlobalPosition},${position.markerCount},${imageInfo.markerCount}\n"
+                                val ransacPopulation = position.ransacResult?.size ?: 0
+                                val csvLine = "${imageInfo.fileName},${position.markerId},${position.x},${position.y},${position.z},${position.ransacThreshold},${arithmeticFilterType.name},${position.isGlobalPosition},${position.markerCount},${imageInfo.markerCount},$ransacPopulation,${position.ransacExcluded}\n"
                                 outputStream.write(csvLine.toByteArray())
                             }
                         } else {
                             // Imagen procesada correctamente pero sin detecciones
-                            val noDetectionLine = "${imageInfo.fileName},NO_DETECTION,,,,,,,${imageInfo.markerCount}\n"
+                            val noDetectionLine = "${imageInfo.fileName},NO_DETECTION,,,,,,,${imageInfo.markerCount},0,[]\n"
                             outputStream.write(noDetectionLine.toByteArray())
                         }
                     } else {
@@ -383,7 +384,7 @@ class BatchArucoProcessingViewModel(
             processedImages = 0
         }
         
-        val csvHeader = "image_name,marker_id,x,y,z,ransac_threshold,filter_type,is_global_position,marker_count,total_images_processed,successful_images,total_markers_detected\n"
+        val csvHeader = "image_name,marker_id,x,y,z,ransac_threshold,filter_type,is_global_position,marker_count,total_images_processed,successful_images,ransac_population,is_ransac_excluded\n"
         outputStream.write(csvHeader.toByteArray())
 
         try {
@@ -393,12 +394,12 @@ class BatchArucoProcessingViewModel(
             // Estadísticas del lote
             val totalImagesProcessed = result.processedImages.size
             val successfulImages = result.processedImages.count { it.success }
-            val totalMarkersDetected = result.processedImages.sumOf { it.markerCount }
             
             // Escribir posición global (si existe)
             val globalPosition = result.detectedPositions.find { it.isGlobalPosition }
             if (globalPosition != null) {
-                val csvLine = ",${globalPosition.markerId},${globalPosition.x},${globalPosition.y},${globalPosition.z},${globalPosition.ransacThreshold},${arithmeticFilterType.name},${globalPosition.isGlobalPosition},${globalPosition.markerCount},$totalImagesProcessed,$successfulImages,$totalMarkersDetected\n"
+                val ransacPopulation = globalPosition.ransacResult?.size ?: 0
+                val csvLine = ",${globalPosition.markerId},${globalPosition.x},${globalPosition.y},${globalPosition.z},${globalPosition.ransacThreshold},${arithmeticFilterType.name},${globalPosition.isGlobalPosition},${globalPosition.markerCount},$totalImagesProcessed,$successfulImages,$ransacPopulation,${globalPosition.ransacExcluded}\n"
                 outputStream.write(csvLine.toByteArray())
             }
             
@@ -406,25 +407,25 @@ class BatchArucoProcessingViewModel(
             val individualPositions = result.detectedPositions.filter { !it.isGlobalPosition }
             for (position in individualPositions) {
                 val imageName = position.sourceIdentifier ?: ""
-                val csvLine = "$imageName,${position.markerId},${position.x},${position.y},${position.z},${position.ransacThreshold},${arithmeticFilterType.name},${position.isGlobalPosition},${position.markerCount},$totalImagesProcessed,$successfulImages,$totalMarkersDetected\n"
+                val csvLine = "$imageName,${position.markerId},${position.x},${position.y},${position.z},,,${position.isGlobalPosition},${position.markerCount},,$successfulImages,,${position.ransacExcluded}\n"
                 outputStream.write(csvLine.toByteArray())
             }
             
             // Escribir información de imágenes con errores
             for (imageInfo in result.processedImages.filter { !it.success }) {
-                val errorLine = "${imageInfo.fileName},ERROR,,,,,${imageInfo.error ?: "Image processing error"},,,${imageInfo.markerCount},$totalImagesProcessed,$successfulImages,$totalMarkersDetected\n"
+                val errorLine = "${imageInfo.fileName},ERROR,,,,,${imageInfo.error ?: "Image processing error"},,,${imageInfo.markerCount},$totalImagesProcessed,$successfulImages,0,\n"
                 outputStream.write(errorLine.toByteArray())
             }
             
             // Si hubo error global
             if (!result.success && result.error != null) {
-                val globalErrorLine = ",GLOBAL_ERROR,,,,,${result.error},,,0,$totalImagesProcessed,$successfulImages,$totalMarkersDetected\n"
+                val globalErrorLine = ",GLOBAL_ERROR,,,,,${result.error},,,0,$totalImagesProcessed,$successfulImages\n"
                 outputStream.write(globalErrorLine.toByteArray())
             }
             
             // Si no se detectaron posiciones
             if (result.detectedPositions.isEmpty() && result.success) {
-                val noDetectionLine = ",NO_DETECTION,,,,,,,0,$totalImagesProcessed,$successfulImages,$totalMarkersDetected\n"
+                val noDetectionLine = ",NO_DETECTION,,,,,,,0,$totalImagesProcessed,$successfulImages,\n"
                 outputStream.write(noDetectionLine.toByteArray())
             }
 
@@ -456,7 +457,7 @@ class BatchArucoProcessingViewModel(
     }
 
     /**
-     * Reinicia el estado del procesamiento.
+     * Resetea el estado del procesamiento.
      */
     fun resetProcessing() {
         processedImages = 0
@@ -464,6 +465,35 @@ class BatchArucoProcessingViewModel(
         currentImageName = ""
         processingComplete = false
         clearError()
+    }
+
+    /**
+     * Genera un JSON con la información de los marcadores RANSAC.
+     */
+    private fun generateRansacMarkersJson(ransacResult: List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker>?): String {
+        if (ransacResult.isNullOrEmpty()) return "[]"
+        
+        val markersInfo = ransacResult.map { marker ->
+            mapOf(
+                "marker_id" to marker.markerId,
+                "source_image" to (marker.sourceIdentifier ?: "unknown")
+            )
+        }
+        
+        // Convertir a JSON simple (sin usar librerías externas)
+        return markersInfo.joinToString(
+            prefix = "[",
+            postfix = "]",
+            separator = ","
+        ) { marker ->
+            "{" + marker.entries.joinToString(",") { (key, value) ->
+                when (value) {
+                    is String -> "\"$key\":\"$value\""
+                    is Number -> "\"$key\":$value"
+                    else -> "\"$key\":\"$value\""
+                }
+            } + "}"
+        }
     }
 
     override fun onCleared() {
