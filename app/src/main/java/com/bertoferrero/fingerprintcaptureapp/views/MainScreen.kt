@@ -19,6 +19,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.capture.OfflineCaptureScreen
 import com.bertoferrero.fingerprintcaptureapp.views.capture.OnlineCaptureScreen
 import com.bertoferrero.fingerprintcaptureapp.views.processing.BatchArucoProcessingScreen
+import com.bertoferrero.fingerprintcaptureapp.views.processing.OnlineSamplePostprocessingScreen
 
 /**
  * Pantalla principal de navegación de la aplicación.
@@ -89,8 +90,7 @@ class MainScreen : Screen {
                     
                     Button(
                         onClick = {
-                            // TODO: Implementar navegación a OnlinePostprocessingScreen
-                            // navigator.push(OnlinePostprocessingScreen())
+                            navigator.push(OnlineSamplePostprocessingScreen())
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

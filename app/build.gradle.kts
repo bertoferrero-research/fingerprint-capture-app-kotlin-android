@@ -74,4 +74,5 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.trilateration)
     implementation(libs.documentfile)
+    implementation("com.jsoizo:kotlin-csv-jvm:1.10.0")
 }

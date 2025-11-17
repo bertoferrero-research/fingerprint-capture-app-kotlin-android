@@ -13,7 +13,7 @@ import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBeh
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
-import com.bertoferrero.fingerprintcaptureapp.controllers.processing.BatchArucoProcessingController
+import com.bertoferrero.fingerprintcaptureapp.controllers.processing.ArucoProcessingController
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -88,7 +88,7 @@ class BatchArucoProcessingViewModel(
     private var markersDefinition: List<MarkerDefinition> = emptyList()
     
     // Controlador de procesamiento
-    private var processingController: BatchArucoProcessingController? = null
+    private var processingController: ArucoProcessingController? = null
 
     // Job del procesamiento para cancelación
     private var processingJob: Job? = null
@@ -191,7 +191,7 @@ class BatchArucoProcessingViewModel(
      */
     private fun initializeProcessingController() {
         if (markersDefinition.isNotEmpty()) {
-            processingController = BatchArucoProcessingController(
+            processingController = ArucoProcessingController(
                 arucoDictionaryType = selectedArucoType,
                 markersDefinition = markersDefinition,
                 multipleMarkersBehaviour = arithmeticFilterType

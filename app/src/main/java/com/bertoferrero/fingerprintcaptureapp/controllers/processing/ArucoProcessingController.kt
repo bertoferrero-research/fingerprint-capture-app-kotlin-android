@@ -20,7 +20,7 @@ import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersInFrame
  * Encapsula la lógica de detección de marcadores y cálculo de posiciones
  * para procesamiento de múltiples imágenes.
  */
-class BatchArucoProcessingController(
+class ArucoProcessingController(
     private val arucoDictionaryType: ArucoDictionaryType,
     private val markersDefinition: List<MarkerDefinition>,
     private val multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.WEIGHTED_MEDIAN
