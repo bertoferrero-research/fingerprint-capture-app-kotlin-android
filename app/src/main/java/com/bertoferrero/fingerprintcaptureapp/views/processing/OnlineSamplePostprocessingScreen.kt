@@ -163,33 +163,17 @@ class OnlineSamplePostprocessingScreen : Screen {
                             text = "Time Configuration",
                             style = MaterialTheme.typography.titleMedium
                         )
-                        
-                        // Sampling Time (ST)
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "Sampling Time (ST) - ms between frames",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                text = "Avoids processing every single frame",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            NumberField(
-                                value = viewModel.samplingTime,
-                                onValueChange = { viewModel.updateSamplingTime(it) },
-                                label = { Text("Sampling Time (ms)") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        
-                        Divider()
-                        
+
                         // Time Window
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 text = "Time Window",
                                 style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = "Defines the images selection windows. It is calculated from the rssi sample timestamp subbing this value",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             NumberField(
                                 value = viewModel.timeWindow,
@@ -200,7 +184,7 @@ class OnlineSamplePostprocessingScreen : Screen {
                         }
                     }
                 }
-                
+
                 // Sección 3: Configuración de ArUco
                 Card(
                     modifier = Modifier.fillMaxWidth(),
