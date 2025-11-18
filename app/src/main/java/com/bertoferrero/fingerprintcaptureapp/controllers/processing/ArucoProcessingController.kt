@@ -123,7 +123,8 @@ class ArucoProcessingController(
         
         // 4. Componer resultado final
         val detectedPositions = if (globalError == null) {
-            composeDetectedPositions(positionResult, ransacResult)
+            val ransacUsedThreshold = globalPositioner!!.ransacUsedThreshold
+            composeDetectedPositions(positionResult, ransacResult, ransacUsedThreshold)
         } else {
             mutableListOf()
         }
@@ -234,7 +235,8 @@ class ArucoProcessingController(
      */
     private fun composeDetectedPositions(
         positionResult: Pair<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position, List<com.bertoferrero.fingerprintcaptureapp.lib.positioning.Position>>?,
-        ransacResult: MutableList<com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker>
+        ransacResult: MutableList<com.bertoferrero.fingerprintcaptureapp.lib.positioning.PositionFromMarker>,
+        ransacUsedThreshold: Double
     ): MutableList<DetectedMarkerPosition> {
         val positions = mutableListOf<DetectedMarkerPosition>()
         
@@ -250,7 +252,7 @@ class ArucoProcessingController(
                         x = globalPosition.x,
                         y = globalPosition.y,
                         z = globalPosition.z,
-                        ransacThreshold = ransacMinThreshold, // Threshold inicial usado
+                        ransacThreshold = ransacUsedThreshold,
                         isGlobalPosition = true,
                         markerCount = markerCount,
                         sourceIdentifier = null,
@@ -277,7 +279,7 @@ class ArucoProcessingController(
                             x = markerPos.x,
                             y = markerPos.y,
                             z = markerPos.z,
-                            ransacThreshold = ransacMinThreshold, // Threshold inicial usado
+                            ransacThreshold = ransacUsedThreshold,
                             isGlobalPosition = false,
                             markerCount = 1,
                             sourceIdentifier = positionFromMarker?.sourceIdentifier,

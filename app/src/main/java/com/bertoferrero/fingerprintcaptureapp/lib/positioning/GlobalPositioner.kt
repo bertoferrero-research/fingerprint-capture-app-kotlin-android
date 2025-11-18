@@ -21,6 +21,9 @@ class GlobalPositioner(
     val markersConfig: List<MarkerDefinition>,
 ) {
 
+    var ransacUsedThreshold: Double = 0.0
+        private set
+
     /**
      * Get the camera position from the detected ArUco markers.
      * @param detectedMarkers List of detected markers in the current frame.
@@ -34,7 +37,8 @@ class GlobalPositioner(
         ransacThreshold: Double = 0.2,
         ransacThresholdMax: Double? = null,
         ransacThresholdStep: Double = 0.1,
-        outputRansacResult: MutableList<PositionFromMarker>? = null
+        outputRansacResult: MutableList<PositionFromMarker>? = null,
+        outputRansacThreshold: Double? = null
         ): Pair<Position, List<PositionFromMarker>>? {
 
         var filteredMarkers = detectedMarkers
@@ -167,7 +171,7 @@ class GlobalPositioner(
         if (returnData == null) {
             return null
         }
-
+        ransacUsedThreshold = ransacThresholdValue - ransacThresholdStep
         return Pair(returnData, extractedPositions)
     }
 

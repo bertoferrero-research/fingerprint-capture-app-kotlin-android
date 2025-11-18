@@ -277,9 +277,12 @@ class OnlineSamplePostprocessingViewModel(
                 val outputFile = outputDirectory.createFile("text/csv", "all.csv")
                     ?: throw IllegalStateException("Cannot create output CSV file")
 
+                //Creamos el fichero de estadísticas de procesamiento
+                val statsFile = outputDirectory.createFile("text/csv", "all_processing_stats.csv")
+                    ?: throw IllegalStateException("Cannot create stats CSV file")
 
                 //Ejecutamos toda la lógica
-                processData(context, imageFileList, allCsvFile, outputFile)
+                processData(context, imageFileList, allCsvFile, outputFile, statsFile)
 
                 withContext(Dispatchers.Main) {
                     processingComplete = true
@@ -297,21 +300,29 @@ class OnlineSamplePostprocessingViewModel(
 
     /**
      * Procesa los datos del directorio de entrada.
-     * TODO: Implementar la lógica de procesamiento.
      */
     private suspend fun processData(
         context: Context,
         imageFileList: Map<Double, DocumentFile>,
         allCsvFile: DocumentFile,
-        outputFile: DocumentFile
+        outputFile: DocumentFile,
+        statsFile: DocumentFile
     ) = withContext(Dispatchers.IO) {
 
 
         // Preparamos el stream del fichero de salida
         val outputStream = context.contentResolver.openOutputStream(outputFile.uri)
             ?: throw IllegalStateException("Cannot open output stream")
+        
+        // Preparamos el stream del fichero de estadísticas
+        val statsStream = context.contentResolver.openOutputStream(statsFile.uri)
+            ?: throw IllegalStateException("Cannot open stats stream")
+        
         //Indicamos que se escriban las cabeceras
         var writeHeaders = true
+        
+        // Escribir cabecera del CSV de estadísticas
+        writeStatsHeader(statsStream)
         
 
 
@@ -320,7 +331,6 @@ class OnlineSamplePostprocessingViewModel(
         var lastPositionTimestamp = ""
         var lastPositionCacheImageMin : Double = 0.0
         var lastPositionCacheImageMax : Double = 0.0
-        var lastPositionStatus = ""
 
         val inputStreamAllCsv = context.contentResolver.openInputStream(allCsvFile.uri)
             ?: throw Exception("Cannot open file: ${allCsvFile.name}")
@@ -352,7 +362,7 @@ class OnlineSamplePostprocessingViewModel(
                 it.key <= sampleTimestampDouble && it.key >= minWindow
             }
             
-            if(selectedArucoImages.isNotEmpty()){
+            val lastPositionStatus: String = if(selectedArucoImages.isNotEmpty()){
                 //Comprobamos caché
                 val selectedMin = selectedArucoImages.keys.min()
                 val selectedMax = selectedArucoImages.keys.max()
@@ -365,6 +375,15 @@ class OnlineSamplePostprocessingViewModel(
                         context,
                         selectedArucoImages.values.toList()
                     )
+                    
+                    // Escribir estadísticas del procesamiento
+                    writeProcessingStats(
+                        statsStream = statsStream,
+                        positioningResult = positioningResult,
+                        rssiTimestamp = sampleTimestamp,
+                        selectedImages = selectedArucoImages
+                    )
+                    
                     // Comprobamos si se ha podido obtener la posición
                     val globalPosition =
                         positioningResult.detectedPositions.find { it.isGlobalPosition }
@@ -373,19 +392,17 @@ class OnlineSamplePostprocessingViewModel(
                         lastPosition[1] = globalPosition.y
                         lastPosition[2] = globalPosition.z
                         lastPositionTimestamp = sampleTimestamp
-                        lastPositionStatus = "calculated"
+                        "calculated"
                     } else {
-                        lastPositionStatus = "no_calculated"
+                        "no_calculated"
                     }
 
-                    //TODO obtener datos para estadísticas y volcarlso en un csv a parte, como en batcharucoprocessingviewmodel
-                    //Reciclar esa lógica en un controller o en una librería y mejorar la escritura en csv evitando hacer el string a pelo
                 } else {
                     // Cache hit: reutilizar última posición calculada
-                    lastPositionStatus = "cached"
+                    "cached"
                 }
             } else {
-                lastPositionStatus = "no_images"
+                "no_images"
             }
 
             // Actualizamos la posición de la fila
@@ -404,6 +421,7 @@ class OnlineSamplePostprocessingViewModel(
         }
         inputStreamAllCsv.close()
         outputStream.close()
+        statsStream.close()
     }
 
     private fun loadMatPhotoImages(
@@ -423,6 +441,173 @@ class OnlineSamplePostprocessingViewModel(
             }
         }
         return imageFileList
+    }
+
+    /**
+     * Escribe la cabecera del CSV de estadísticas de procesamiento.
+     */
+    private fun writeStatsHeader(statsStream: java.io.OutputStream) {
+        val headers = listOf(
+            "rssi_timestamp",
+            "entry_type",
+            "image_filename",
+            "marker_id",
+            "x",
+            "y",
+            "z",
+            "ransac_threshold",
+            "filter_type",
+            "is_global_position",
+            "marker_count",
+            "images_processed",
+            "successful_images",
+            "ransac_population",
+            "is_ransac_excluded",
+            "image_timestamp"
+        )
+        statsStream.write((headers.joinToString(",") + "\n").toByteArray())
+    }
+
+    /**
+     * Escribe las estadísticas de procesamiento en el CSV.
+     * Escribe una línea para la posición global y una línea por cada imagen procesada.
+     */
+    private fun writeProcessingStats(
+        statsStream: java.io.OutputStream,
+        positioningResult: ArucoProcessingController.BatchProcessingResult,
+        rssiTimestamp: String,
+        selectedImages: Map<Double, DocumentFile>
+    ) {
+        val totalImagesProcessed = positioningResult.processedImages.size
+        val successfulImages = positioningResult.processedImages.count { it.success }
+        
+        // 1. Escribir línea de posición global (si existe)
+        val globalPosition = positioningResult.detectedPositions.find { it.isGlobalPosition }
+        if (globalPosition != null) {
+            val ransacPopulation = globalPosition.ransacResult?.size ?: 0
+            val globalLine = listOf(
+                rssiTimestamp,
+                "GLOBAL",
+                "",
+                globalPosition.markerId.toString(),
+                globalPosition.x.toString(),
+                globalPosition.y.toString(),
+                globalPosition.z.toString(),
+                globalPosition.ransacThreshold.toString(),
+                arithmeticFilterType.name,
+                globalPosition.isGlobalPosition.toString(),
+                globalPosition.markerCount.toString(),
+                totalImagesProcessed.toString(),
+                successfulImages.toString(),
+                ransacPopulation.toString(),
+                (globalPosition.ransacExcluded ?: false).toString(),
+                ""
+            )
+            statsStream.write((globalLine.joinToString(",") + "\n").toByteArray())
+        } else {
+            // No se calculó posición global
+            val noPositionLine = listOf(
+                rssiTimestamp,
+                "GLOBAL",
+                "",
+                "NO_POSITION",
+                "",
+                "",
+                "",
+                "",
+                arithmeticFilterType.name,
+                "false",
+                "0",
+                totalImagesProcessed.toString(),
+                successfulImages.toString(),
+                "0",
+                "false",
+                ""
+            )
+            statsStream.write((noPositionLine.joinToString(",") + "\n").toByteArray())
+        }
+        
+        // 2. Escribir línea por cada imagen procesada
+        for (imageInfo in positioningResult.processedImages) {
+            // Buscar el timestamp de esta imagen
+            val imageTimestamp = selectedImages.entries.find { 
+                it.value.name == imageInfo.fileName 
+            }?.key?.toString() ?: ""
+            
+            if (imageInfo.success) {
+                // Buscar posiciones detectadas para esta imagen
+                val imagePositions = positioningResult.detectedPositions.filter { 
+                    !it.isGlobalPosition && it.sourceIdentifier == imageInfo.fileName 
+                }
+                
+                if (imagePositions.isNotEmpty()) {
+                    // Escribir una línea por cada marcador detectado en la imagen
+                    for (position in imagePositions) {
+                        val imageLine = listOf(
+                            rssiTimestamp,
+                            "IMAGE",
+                            imageInfo.fileName,
+                            position.markerId.toString(),
+                            position.x.toString(),
+                            position.y.toString(),
+                            position.z.toString(),
+                            "",
+                            "",
+                            "false",
+                            "1",
+                            totalImagesProcessed.toString(),
+                            successfulImages.toString(),
+                            "",
+                            (position.ransacExcluded ?: false).toString(),
+                            imageTimestamp
+                        )
+                        statsStream.write((imageLine.joinToString(",") + "\n").toByteArray())
+                    }
+                } else {
+                    // Imagen procesada pero sin detecciones
+                    val noDetectionLine = listOf(
+                        rssiTimestamp,
+                        "IMAGE",
+                        imageInfo.fileName,
+                        "NO_DETECTION",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "false",
+                        "0",
+                        totalImagesProcessed.toString(),
+                        successfulImages.toString(),
+                        "",
+                        "false",
+                        imageTimestamp
+                    )
+                    statsStream.write((noDetectionLine.joinToString(",") + "\n").toByteArray())
+                }
+            } else {
+                // Error al procesar la imagen
+                val errorLine = listOf(
+                    rssiTimestamp,
+                    "IMAGE_ERROR",
+                    imageInfo.fileName,
+                    "ERROR",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "false",
+                    imageInfo.markerCount.toString(),
+                    totalImagesProcessed.toString(),
+                    successfulImages.toString(),
+                    "",
+                    "false",
+                    imageTimestamp
+                )
+                statsStream.write((errorLine.joinToString(",") + "\n").toByteArray())
+            }
+        }
     }
 
     /**
