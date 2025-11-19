@@ -158,6 +158,7 @@ class OnlineSamplePostprocessingViewModel(
      */
     fun updateRansacMinThreshold(value: Double) {
         ransacMinThreshold = value
+        processingController?.updateRansacParameters(ransacMinThreshold, ransacMaxThreshold, ransacStep)
         clearError()
     }
 
@@ -166,6 +167,7 @@ class OnlineSamplePostprocessingViewModel(
      */
     fun updateRansacMaxThreshold(value: Double) {
         ransacMaxThreshold = value
+        processingController?.updateRansacParameters(ransacMinThreshold, ransacMaxThreshold, ransacStep)
         clearError()
     }
 
@@ -174,6 +176,7 @@ class OnlineSamplePostprocessingViewModel(
      */
     fun updateRansacStep(value: Double) {
         ransacStep = value
+        processingController?.updateRansacParameters(ransacMinThreshold, ransacMaxThreshold, ransacStep)
         clearError()
     }
 
