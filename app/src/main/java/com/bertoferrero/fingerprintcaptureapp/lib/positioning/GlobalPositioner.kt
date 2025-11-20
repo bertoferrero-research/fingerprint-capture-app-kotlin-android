@@ -135,9 +135,9 @@ class GlobalPositioner(
                 val posArray = DoubleArray(3)
                 t_cam_world.get(0, 0, posArray)
 
-                //avoid negative Z
-                if (posArray[2] < 0) {
-                    android.util.Log.w("GlobalPositioner", "Discarding marker ${markerData.id} due to negative Z position: ${posArray[2]}")
+                //avoid any negative
+                if (posArray[0] < 0 || posArray[1] < 0 || posArray[2] < 0) {
+                    android.util.Log.w("GlobalPositioner", "Discarding marker ${markerData.id} due to a negative position: ${posArray[0]}, ${posArray[1]}, ${posArray[2]}")
                     continue
                 }
 
