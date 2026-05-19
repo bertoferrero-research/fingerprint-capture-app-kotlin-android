@@ -462,7 +462,7 @@ class MarkersDetector(
             )
             true
         } catch (e: Exception) {
-            // Método alternativo: VVS (Visible-Virtual-Shifted)
+            // Método alternativo: VVS (Virtual Visual Servoing)
             try {
                 Calib3d.solvePnPRefineVVS(
                     getObjectPoints(markerId),
