@@ -1,5 +1,7 @@
 # Mejoras Implementadas en la Detección ArUco
 
+> Registro de lo efectivamente implementado a partir de la propuesta original en [ARUCO_DETECTION_PROPOSAL.md](ARUCO_DETECTION_PROPOSAL.md).
+
 ## Cambios Realizados
 
 ### 1. Refinamiento de Esquinas Subpíxel

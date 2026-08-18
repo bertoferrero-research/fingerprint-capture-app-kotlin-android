@@ -1,3 +1,7 @@
+# Propuesta original de mejoras de detección ArUco
+
+> Documento fuente de la propuesta; el estado de lo implementado se registra en [ARUCO_DETECTION_IMPLEMENTATION.md](ARUCO_DETECTION_IMPLEMENTATION.md).
+
 Que, a partir de ~5 m, las **componentes x/z** “se vuelvan locas” (signos negativos, saltos) es un patrón clásico de pose con **plano casi frontal + marcador pequeño en imagen**. Ahí aparecen tres culpas típicas:
 
 1. **Ambigüedad planar (cheirality/flip)**
