@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatFromFile
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.testscreens.TestDistanceViewModel
@@ -111,6 +112,14 @@ class TestDistanceScreen : Screen {
                     ArucoTypeDropdownMenu(
                         selectedArucoType = ArucoDictionaryType.fromInt(cameraController.arucoDictionaryType)!!,
                         onArucoTypeSelected = { viewModel.updateArucoType(it.value) }
+                    )
+
+                    SimpleDropdownMenu(
+                        label = "Detection Profile",
+                        options = DetectionProfile.entries.map { it.name }.toTypedArray(),
+                        values = DetectionProfile.entries.toTypedArray(),
+                        onOptionSelected = viewModel::updateDetectionProfile,
+                        selectedValue = cameraController.detectionProfile,
                     )
 
                     Button(

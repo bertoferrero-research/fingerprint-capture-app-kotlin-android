@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestDistanceCameraController
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
 import kotlinx.coroutines.launch
 
@@ -54,5 +55,9 @@ class TestDistanceViewModel : ViewModel() {
     fun updateArucoType(type: Int) {
         settingsManager.arucoDictionaryType = type
         cameraController.arucoDictionaryType = type
+    }
+
+    fun updateDetectionProfile(profile: DetectionProfile) {
+        cameraController.detectionProfile = profile
     }
 }

@@ -9,6 +9,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestDistanceCameraController
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatFromFile
 import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
@@ -21,7 +22,8 @@ import org.opencv.core.Mat
 data class BatchProcessResult(
     val fileName: String,
     val distance: Double?,
-    val error: String? = null
+    val error: String? = null,
+    val detectionProfile: String = ""
 )
 
 class BatchDistanceTestViewModel : ViewModel() {
@@ -59,6 +61,13 @@ class BatchDistanceTestViewModel : ViewModel() {
     var results by mutableStateOf<List<BatchProcessResult>>(emptyList())
         private set
 
+    // Se mantiene aparte de cameraController (y no dentro de settingsManager, ya que no debe
+    // persistir entre sesiones): la Configuration Section se renderiza antes de que
+    // initializeController() complete (se llama desde un LaunchedEffect), así que leer
+    // directamente de cameraController.detectionProfile ahí lanzaría IllegalStateException.
+    var detectionProfile by mutableStateOf(DetectionProfile.OPTIMIZED)
+        private set
+
     fun initializeController(context: Context) {
         if (_cameraController == null) {
             _cameraController = TestDistanceCameraController(
@@ -66,7 +75,8 @@ class BatchDistanceTestViewModel : ViewModel() {
                 markerSize = settingsManager.markerSize,
                 arucoDictionaryType = settingsManager.arucoDictionaryType,
                 method = 1, // Default method
-                testingImageFrame = null
+                testingImageFrame = null,
+                detectionProfile = detectionProfile
             )
             _cameraController?.initProcess()
         }
@@ -96,8 +106,15 @@ class BatchDistanceTestViewModel : ViewModel() {
         cameraController.arucoDictionaryType = type
     }
 
+    fun updateDetectionProfile(profile: DetectionProfile) {
+        detectionProfile = profile
+        _cameraController?.detectionProfile = profile
+    }
+
     private fun evaluateCanStartProcessing() {
-        canStartProcessing = inputFolderUri != null && outputFolderUri != null && !isProcessing
+        // La carpeta de salida es opcional: sin ella, los resultados solo se muestran en
+        // pantalla (útil para depurar/previsualizar sin generar CSVs de sobra).
+        canStartProcessing = inputFolderUri != null && !isProcessing
     }
 
     fun startBatchProcessing(context: Context) {
@@ -131,7 +148,8 @@ class BatchDistanceTestViewModel : ViewModel() {
                             BatchProcessResult(
                                 fileName = file.name ?: "Unknown",
                                 distance = null,
-                                error = e.message ?: "Unknown error"
+                                error = e.message ?: "Unknown error",
+                                detectionProfile = cameraController.detectionProfile.name
                             )
                         )
                     }
@@ -140,8 +158,11 @@ class BatchDistanceTestViewModel : ViewModel() {
                     results = batchResults.toList()
                 }
 
-                // Save results to CSV
-                saveResultsToCSV(context, batchResults)
+                // Guardar CSV solo si hay carpeta de salida seleccionada; si no, modo
+                // previsualización: los resultados ya están en pantalla vía `results`.
+                if (outputFolderUri != null) {
+                    saveResultsToCSV(context, batchResults)
+                }
                 processingComplete = true
 
             } catch (e: Exception) {
@@ -178,13 +199,15 @@ class BatchDistanceTestViewModel : ViewModel() {
 
                 BatchProcessResult(
                     fileName = file.name ?: "Unknown",
-                    distance = distance
+                    distance = distance,
+                    detectionProfile = cameraController.detectionProfile.name
                 )
             } catch (e: Exception) {
                 BatchProcessResult(
                     fileName = file.name ?: "Unknown",
                     distance = null,
-                    error = e.message ?: "Processing error"
+                    error = e.message ?: "Processing error",
+                    detectionProfile = cameraController.detectionProfile.name
                 )
             }
         }
@@ -199,11 +222,12 @@ class BatchDistanceTestViewModel : ViewModel() {
         withContext(Dispatchers.IO) {
             val outputFolder = DocumentFile.fromTreeUri(context, outputFolderUri!!)
             val timestamp = System.currentTimeMillis()
-            val fileName = "batch_distance_results_$timestamp.csv"
+            val profileName = cameraController.detectionProfile.name
+            val fileName = "batch_distance_results_${profileName}_$timestamp.csv"
 
-            val header = "filename,distance_meters,error_message"
+            val header = "filename,distance_meters,error_message,detection_profile"
             val csvRows = results.map { result ->
-                "${result.fileName},${result.distance ?: ""},${result.error ?: ""}"
+                "${result.fileName},${result.distance ?: ""},${result.error ?: ""},${result.detectionProfile}"
             }
             val csvContent = (listOf(header) + csvRows).joinToString("\n")
 

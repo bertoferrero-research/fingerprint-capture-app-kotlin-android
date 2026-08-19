@@ -21,6 +21,7 @@ import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.testscreens.BatchDistanceTestViewModel
 import org.opencv.objdetect.Objdetect
 
@@ -141,7 +142,7 @@ private fun ConfigurationSection(
                     onClick = outputFolderChooser,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Select Output Folder")
+                    Text("Select Output Folder (optional)")
                 }
             }
 
@@ -156,8 +157,14 @@ private fun ConfigurationSection(
 
             if (viewModel.outputFolderUri != null) {
                 Text(
-                    text = "Output: Selected ✓",
+                    text = "Output: Selected ✓ (results will be saved to CSV)",
                     color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                Text(
+                    text = "Output: not selected — preview-only mode, results shown on screen, no CSV written",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -199,6 +206,15 @@ private fun ConfigurationSection(
                 selectedArucoType = ArucoDictionaryType.fromInt(viewModel.settingsManager.arucoDictionaryType)!!,
                 onArucoTypeSelected = { viewModel.updateArucoType(it.value) }
             )
+
+            // Detection Profile
+            SimpleDropdownMenu(
+                label = "Detection Profile",
+                options = DetectionProfile.entries.map { it.name }.toTypedArray(),
+                values = DetectionProfile.entries.toTypedArray(),
+                onOptionSelected = viewModel::updateDetectionProfile,
+                selectedValue = viewModel.detectionProfile,
+            )
         }
     }
 }
@@ -232,7 +248,7 @@ private fun ProcessingSection(
 
                 if (!viewModel.canStartProcessing) {
                     Text(
-                        text = "Please select both input and output folders to start processing",
+                        text = "Please select an input folder to start processing",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -272,7 +288,11 @@ private fun ProcessingSection(
                     )
                 ) {
                     Text(
-                        text = "Processing completed! Results saved to output folder.",
+                        text = if (viewModel.outputFolderUri != null) {
+                            "Processing completed! Results saved to output folder."
+                        } else {
+                            "Processing completed! Preview-only mode: results shown above, nothing saved to disk."
+                        },
                         modifier = Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -308,6 +328,14 @@ private fun ResultCard(result: com.bertoferrero.fingerprintcaptureapp.viewmodels
                     text = "Distance: ${String.format("%.4f", result.distance)} m",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (result.detectionProfile.isNotEmpty()) {
+                Text(
+                    text = "Profile: ${result.detectionProfile}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

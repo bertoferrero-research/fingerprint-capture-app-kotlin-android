@@ -8,6 +8,7 @@ import android.util.Log
 import android.widget.Toast
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.detectMarkers
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
 import kotlinx.coroutines.yield
@@ -28,7 +29,8 @@ class TestDistanceCameraController(
     public var markerSize: Float = 0.173f,
     public var arucoDictionaryType: Int = org.opencv.objdetect.Objdetect.DICT_6X6_250,
     public var method: Int = 1,
-    public var testingImageFrame: CvCameraViewFrameMockFromImage? = null
+    public var testingImageFrame: CvCameraViewFrameMockFromImage? = null,
+    public var detectionProfile: DetectionProfile = DetectionProfile.OPTIMIZED
 ) : ICameraController {
     // Running variables
     private var running = false
@@ -159,11 +161,12 @@ class TestDistanceCameraController(
         val detectedMarkers = detectMarkers(
             inputFrame,
             markerSize,
-            arucoDetector!!,
+            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids
+            ids,
+            detectionProfile
         )
         if (detectedMarkers.size == 0) {
             return rgb
@@ -592,11 +595,12 @@ class TestDistanceCameraController(
         val detectedMarkers = detectMarkers(
             inputFrame,
             markerSize*1000,
-            arucoDetector!!,
+            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids
+            ids,
+            detectionProfile
         )
         if (detectedMarkers.size == 0) {
             return rgb
@@ -645,11 +649,12 @@ class TestDistanceCameraController(
         val detectedMarkers = detectMarkers(
             inputFrame,
             markerSize,
-            arucoDetector!!,
+            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids
+            ids,
+            detectionProfile
         )
         return if (detectedMarkers.isNotEmpty()) detectedMarkers[0].distance else null
     }
@@ -798,11 +803,12 @@ class TestDistanceCameraController(
         val detectedMarkers = detectMarkers(
             inputFrame,
             markerSize*1000,
-            arucoDetector!!,
+            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids
+            ids,
+            detectionProfile
         )
         return if (detectedMarkers.isNotEmpty()) detectedMarkers[0].distance / 1000.0 else null // Convert to meters
     }

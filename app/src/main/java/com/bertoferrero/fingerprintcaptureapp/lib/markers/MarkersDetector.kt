@@ -18,6 +18,13 @@ import kotlin.math.sqrt
 /**
  * Detects markers in the input frame and returns the detected markers with their distance.
  * This class employs the focal length of the camera to estimate the distance to the markers instead of using the camera matrix and distortion coefficients.
+ *
+ * @param markerDefinition Lista de marcadores esperados. Si se deja vacía, se acepta
+ *   cualquier ID detectado usando [defaultMarkerSize] como tamaño (modo "descubrimiento",
+ *   pensado para cuando no se conocen los IDs de antemano, p.ej. el wrapper legacy
+ *   `detectMarkers()`).
+ * @param defaultMarkerSize Tamaño a usar cuando el ID detectado no está en [markerDefinition]
+ *   (o cuando la lista está vacía). Si es null y el ID no se encuentra, se lanza excepción.
  */
 class MarkersDetector(
     var markerDefinition: List<MarkerDefinition>,
@@ -25,14 +32,16 @@ class MarkersDetector(
     private val cameraMatrix: Mat,
     private val distCoeffs: Mat,
     private val markerMaxAngle: Double? = null,
-    private val markerMinPixelSize: Double? = null
+    private val markerMinPixelSize: Double? = null,
+    private val detectionProfile: DetectionProfile = DetectionProfile.OPTIMIZED,
+    private val defaultMarkerSize: Float? = null
 ) {
 
     /**
      * Aruco detector with improved corner detection accuracy and strict parameters
      */
     private val arucoDetector = run {
-        MarkersDetector.constructArucoDetector(arucoDictionaryType)
+        MarkersDetector.constructArucoDetector(arucoDictionaryType, detectionProfile)
     }
 
     /**
@@ -54,7 +63,8 @@ class MarkersDetector(
      * Object points for the markers, calculated based on the marker size.
      */
     private fun getObjectPoints( markerId: Int): MatOfPoint3f {
-        val size = markerSizeMap[markerId] ?: throw IllegalArgumentException("Marker ID $markerId not found in marker definitions.")
+        val size = markerSizeMap[markerId] ?: defaultMarkerSize
+            ?: throw IllegalArgumentException("Marker ID $markerId not found in marker definitions.")
         return MatOfPoint3f(
             Point3(-(size / 2.0), (size / 2.0), 0.0),
             Point3((size / 2.0), (size / 2.0), 0.0),
@@ -178,7 +188,8 @@ class MarkersDetector(
                     continue
                 }
                 var markerId = ids[i, 0][0].toInt()
-                if (!markersId.contains(markerId)) {
+                // Lista vacía = modo descubrimiento: se acepta cualquier ID (ver defaultMarkerSize).
+                if (markerDefinition.isNotEmpty() && !markersId.contains(markerId)) {
                     continue
                 }
 
@@ -189,29 +200,94 @@ class MarkersDetector(
 
                     val cornerMatOfPoint2f = MatOfPoint2f(corners[i].reshape(2, 4))
 
+                    if (detectionProfile == DetectionProfile.OPTIMIZED) {
+                        // Estimate the pose usando solvePnPGeneric para obtener ambas soluciones posibles
+                        val rvecsList = mutableListOf<Mat>()
+                        val tvecsList = mutableListOf<Mat>()
+                        val reprojectionErrors = Mat()
 
-                    // Estimate the pose usando solvePnPGeneric para obtener ambas soluciones posibles
-                    val rvecsList = mutableListOf<Mat>()
-                    val tvecsList = mutableListOf<Mat>()
-                    val reprojectionErrors = Mat()
-                    
-                    val solutionsCount = try {
-                        // Intentar usar solvePnPGeneric para obtener todas las soluciones posibles
-                        Calib3d.solvePnPGeneric(
-                            getObjectPoints(markerId),
-                            cornerMatOfPoint2f,
-                            cameraMatrix,
-                            disctCoeffsMatOfDouble,
-                            rvecsList,
-                            tvecsList,
-                            false,
-                            Calib3d.SOLVEPNP_IPPE_SQUARE,
-                            rvecs,
-                            tvecs,
-                            reprojectionErrors
-                        )
-                    } catch (e: Exception) {
-                        // Si solvePnPGeneric no está disponible, usar solvePnP tradicional
+                        val solutionsCount = try {
+                            // Intentar usar solvePnPGeneric para obtener todas las soluciones posibles
+                            Calib3d.solvePnPGeneric(
+                                getObjectPoints(markerId),
+                                cornerMatOfPoint2f,
+                                cameraMatrix,
+                                disctCoeffsMatOfDouble,
+                                rvecsList,
+                                tvecsList,
+                                false,
+                                Calib3d.SOLVEPNP_IPPE_SQUARE,
+                                rvecs,
+                                tvecs,
+                                reprojectionErrors
+                            )
+                        } catch (e: Exception) {
+                            // Si solvePnPGeneric no está disponible, usar solvePnP tradicional
+                            Calib3d.solvePnP(
+                                getObjectPoints(markerId),
+                                cornerMatOfPoint2f,
+                                cameraMatrix,
+                                disctCoeffsMatOfDouble,
+                                rvecs,
+                                tvecs,
+                                false,
+                                Calib3d.SOLVEPNP_IPPE_SQUARE
+                            )
+                            1 // Una sola solución
+                        }
+
+                        // Si hay múltiples soluciones, elegir la mejor basada en error de reproyección real
+                        if (solutionsCount > 1 && rvecsList.isNotEmpty() && tvecsList.isNotEmpty()) {
+                            var bestSolutionIndex = -1
+                            var bestReprojectionError = Double.MAX_VALUE
+
+                            for (j in 0 until minOf(solutionsCount, rvecsList.size, tvecsList.size)) {
+                                val currentRvec = rvecsList[j]
+                                val currentTvec = tvecsList[j]
+
+                                // Criterio 1: Descartar soluciones con Z negativo (detrás de la cámara)
+                                if (currentTvec[2, 0][0] < 0) {
+                                    continue
+                                }
+
+                                // Criterio 2: Calcular error de reproyección real
+                                val reprojectionError = calculateReprojectionError(
+                                    getObjectPoints(markerId),
+                                    cornerMatOfPoint2f,
+                                    currentRvec,
+                                    currentTvec,
+                                    cameraMatrix,
+                                    disctCoeffsMatOfDouble
+                                )
+
+                                // Seleccionar la solución con menor error de reproyección
+                                if (reprojectionError < bestReprojectionError) {
+                                    bestReprojectionError = reprojectionError
+                                    bestSolutionIndex = j
+                                }
+                            }
+
+                            // Usar la mejor solución encontrada (si hay una válida)
+                            if (bestSolutionIndex >= 0 && bestSolutionIndex < rvecsList.size && bestSolutionIndex < tvecsList.size) {
+                                rvecsList[bestSolutionIndex].copyTo(rvecs)
+                                tvecsList[bestSolutionIndex].copyTo(tvecs)
+                            } else {
+                                // Si no hay solución válida, descartar este marcador
+                                continue
+                            }
+                        }
+
+                        // Refinamiento de pose con Levenberg-Marquardt o VVS (ChatGPT recommendation)
+                        // Mejora significativamente la precisión, especialmente a distancias > 5m
+                        refinePose(markerId, cornerMatOfPoint2f, cameraMatrix, disctCoeffsMatOfDouble, rvecs, tvecs)
+
+                        // Descarte tvec z en negativo (cheirality check)
+                        if (tvecs[2, 0][0] < 0) {
+                            continue
+                        }
+                    } else {
+                        // Perfil BASE: comportamiento histórico (commit af913cb, ago-2025) -
+                        // solución única, sin refinamiento posterior, sin descarte por cheirality.
                         Calib3d.solvePnP(
                             getObjectPoints(markerId),
                             cornerMatOfPoint2f,
@@ -220,59 +296,8 @@ class MarkersDetector(
                             rvecs,
                             tvecs,
                             false,
-                            Calib3d.SOLVEPNP_IPPE_SQUARE
+                            Calib3d.SOLVEPNP_ITERATIVE
                         )
-                        1 // Una sola solución
-                    }
-                    
-                    // Si hay múltiples soluciones, elegir la mejor basada en error de reproyección real
-                    if (solutionsCount > 1 && rvecsList.isNotEmpty() && tvecsList.isNotEmpty()) {
-                        var bestSolutionIndex = -1
-                        var bestReprojectionError = Double.MAX_VALUE
-                        
-                        for (j in 0 until minOf(solutionsCount, rvecsList.size, tvecsList.size)) {
-                            val currentRvec = rvecsList[j]
-                            val currentTvec = tvecsList[j]
-                            
-                            // Criterio 1: Descartar soluciones con Z negativo (detrás de la cámara)
-                            if (currentTvec[2, 0][0] < 0) {
-                                continue
-                            }
-                            
-                            // Criterio 2: Calcular error de reproyección real
-                            val reprojectionError = calculateReprojectionError(
-                                getObjectPoints(markerId),
-                                cornerMatOfPoint2f,
-                                currentRvec,
-                                currentTvec,
-                                cameraMatrix,
-                                disctCoeffsMatOfDouble
-                            )
-                            
-                            // Seleccionar la solución con menor error de reproyección
-                            if (reprojectionError < bestReprojectionError) {
-                                bestReprojectionError = reprojectionError
-                                bestSolutionIndex = j
-                            }
-                        }
-                        
-                        // Usar la mejor solución encontrada (si hay una válida)
-                        if (bestSolutionIndex >= 0 && bestSolutionIndex < rvecsList.size && bestSolutionIndex < tvecsList.size) {
-                            rvecsList[bestSolutionIndex].copyTo(rvecs)
-                            tvecsList[bestSolutionIndex].copyTo(tvecs)
-                        } else {
-                            // Si no hay solución válida, descartar este marcador
-                            continue
-                        }
-                    }
-
-                    // Refinamiento de pose con Levenberg-Marquardt o VVS (ChatGPT recommendation)
-                    // Mejora significativamente la precisión, especialmente a distancias > 5m
-                    refinePose(markerId, cornerMatOfPoint2f, cameraMatrix, disctCoeffsMatOfDouble, rvecs, tvecs)
-
-                    // Descarte tvec z en negativo (cheirality check)
-                    if (tvecs[2, 0][0] < 0) {
-                        continue
                     }
 
                     // Validación de ángulo de vista del marcador (ChatGPT recommendation)
@@ -486,43 +511,50 @@ class MarkersDetector(
         
         /**
          * Factory method to create an ArucoDetector instance.
-         * 
+         *
          * @param arucoDictionaryType Type of ArUco dictionary to use (default is DICT_6X6_250).
+         * @param detectionProfile Perfil de detección a aplicar (BASE = parámetros por defecto,
+         *   OPTIMIZED = parámetros afinados). Ver [DetectionProfile].
          * @return Configured ArucoDetector instance.
          */
         fun constructArucoDetector(
                 arucoDictionaryType: Int = Objdetect.DICT_6X6_250,
+                detectionProfile: DetectionProfile = DetectionProfile.OPTIMIZED,
         ): ArucoDetector {
             val detectorParams = DetectorParameters()
-            try {
-                // Activar refinamiento de esquinas subpíxel para mayor precisión
-                detectorParams._cornerRefinementMethod = 1 // 1 = CORNER_REFINE_SUBPIX
+            if (detectionProfile == DetectionProfile.OPTIMIZED) {
+                try {
+                    // Activar refinamiento de esquinas subpíxel para mayor precisión
+                    detectorParams._cornerRefinementMethod = 1 // 1 = CORNER_REFINE_SUBPIX
 
-                // Parámetros recomendados para evitar falsos positivos
-                // Subir minMarkerPerimeterRate para evitar marcadores demasiado pequeños
-                // minMarkerPerimeterRate: tamaño mínimo relativo del perímetro del marcador.
-                //   -> evita analizar contornos demasiado pequeños (ruido o falsos marcadores).
-                //   -> valor típico: 0.03–0.05
-                detectorParams._minMarkerPerimeterRate = 0.05 // Default: 0.03, subir a 0.05-0.1
+                    // Parámetros recomendados para evitar falsos positivos
+                    // Subir minMarkerPerimeterRate para evitar marcadores demasiado pequeños
+                    // minMarkerPerimeterRate: tamaño mínimo relativo del perímetro del marcador.
+                    //   -> evita analizar contornos demasiado pequeños (ruido o falsos marcadores).
+                    //   -> valor típico: 0.03–0.05
+                    detectorParams._minMarkerPerimeterRate = 0.05 // Default: 0.03, subir a 0.05-0.1
 
-                // Subir minCornerDistanceRate para evitar esquinas demasiado cercanas
-                // minCornerDistanceRate: distancia mínima entre las esquinas del marcador (relativa al tamaño del marcador).
-                //   -> evita que se detecten esquinas demasiado juntas o solapadas (marcadores deformados o falsos).
-                //   -> valor típico: 0.05
-                detectorParams._minCornerDistanceRate = 0.08 // Default: 0.05, subir a 0.08-0.1
+                    // Subir minCornerDistanceRate para evitar esquinas demasiado cercanas
+                    // minCornerDistanceRate: distancia mínima entre las esquinas del marcador (relativa al tamaño del marcador).
+                    //   -> evita que se detecten esquinas demasiado juntas o solapadas (marcadores deformados o falsos).
+                    //   -> valor típico: 0.05
+                    detectorParams._minCornerDistanceRate = 0.08 // Default: 0.05, subir a 0.08-0.1
 
-                // Parámetros adicionales para mejorar detección a distancia
-                detectorParams._adaptiveThreshWinSizeMin = 3 // Default: 3
-                detectorParams._adaptiveThreshWinSizeMax = 23 // Default: 23
-                detectorParams._adaptiveThreshWinSizeStep = 10 // Default: 10
+                    // Parámetros adicionales para mejorar detección a distancia
+                    detectorParams._adaptiveThreshWinSizeMin = 3 // Default: 3
+                    detectorParams._adaptiveThreshWinSizeMax = 23 // Default: 23
+                    detectorParams._adaptiveThreshWinSizeStep = 10 // Default: 10
 
-                // Mejoras para marcadores pequeños en imagen
-                detectorParams._minMarkerDistanceRate = 0.125 // Default: 0.125 Separación mínima entre marcadores
-                detectorParams._cornerRefinementWinSize = 5 // Default: 5 Ventana para refinamiento
-                detectorParams._cornerRefinementMaxIterations = 30 // Default: 30 Iteraciones de refinamiento
-            } catch (e: Exception) {
-                // Si no están disponibles todos los parámetros, usar configuración por defecto
+                    // Mejoras para marcadores pequeños en imagen
+                    detectorParams._minMarkerDistanceRate = 0.125 // Default: 0.125 Separación mínima entre marcadores
+                    detectorParams._cornerRefinementWinSize = 5 // Default: 5 Ventana para refinamiento
+                    detectorParams._cornerRefinementMaxIterations = 30 // Default: 30 Iteraciones de refinamiento
+                } catch (e: Exception) {
+                    // Si no están disponibles todos los parámetros, usar configuración por defecto
+                }
             }
+            // Perfil BASE: se deja detectorParams tal cual (valores por defecto de OpenCV),
+            // reproduciendo el comportamiento histórico previo a estas optimizaciones.
             return ArucoDetector(
                     Objdetect.getPredefinedDictionary(arucoDictionaryType),
                     detectorParams
@@ -530,4 +562,26 @@ class MarkersDetector(
         }
     }
 
+}
+
+/**
+ * Selecciona la estrategia de detección/estimación de pose usada por [MarkersDetector].
+ */
+enum class DetectionProfile {
+    /**
+     * Comportamiento histórico (commit af913cb, ago-2025): `DetectorParameters()` por defecto,
+     * `solvePnP(SOLVEPNP_ITERATIVE)` de una sola solución, sin refinamiento posterior y sin
+     * descarte por `tvec.z < 0`. Sirve para reproducir/comparar datasets de distancia
+     * capturados antes de las optimizaciones de pose descritas en
+     * docs/ARUCO_DETECTION_IMPLEMENTATION.md.
+     */
+    BASE,
+
+    /**
+     * Comportamiento actual: `DetectorParameters` con refinamiento subpíxel y umbrales de
+     * perímetro/esquina más estrictos, `solvePnPGeneric(SOLVEPNP_IPPE_SQUARE)` eligiendo la
+     * mejor de 2 soluciones por error de reproyección, refinamiento `solvePnPRefineLM`/`VVS`,
+     * y descarte de `tvec.z < 0`.
+     */
+    OPTIMIZED
 }
