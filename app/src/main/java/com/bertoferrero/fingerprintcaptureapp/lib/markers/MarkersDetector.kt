@@ -21,8 +21,8 @@ import kotlin.math.sqrt
  *
  * @param markerDefinition Lista de marcadores esperados. Si se deja vacía, se acepta
  *   cualquier ID detectado usando [defaultMarkerSize] como tamaño (modo "descubrimiento",
- *   pensado para cuando no se conocen los IDs de antemano, p.ej. el wrapper legacy
- *   `detectMarkers()`).
+ *   pensado para cuando no se conocen los IDs de antemano, p.ej.
+ *   `TestDistanceCameraController.detectMarkersFromFrame`).
  * @param defaultMarkerSize Tamaño a usar cuando el ID detectado no está en [markerDefinition]
  *   (o cuando la lista está vacía). Si es null y el ID no se encuentra, se lanza excepción.
  */

@@ -6,8 +6,8 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.util.Log
 import android.widget.Toast
-import com.bertoferrero.fingerprintcaptureapp.lib.markers.detectMarkers
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersInFrame
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.models.CameraCalibrationParameters
@@ -100,6 +100,35 @@ class TestDistanceCameraController(
         }
     }
 
+    /**
+     * Detecta marcadores de cualquier ID (modo descubrimiento) y calcula su pose, usando
+     * [markerSize] como tamaño para todos. Sustituye al antiguo wrapper `detectMarkers()`
+     * (eliminado) usado solo por los métodos 1 y 6 (Calibration / Calculated camera matrix),
+     * los únicos que necesitan pose completa (rvec/tvec) en vez de solo esquinas 2D.
+     */
+    private fun detectMarkersFromFrame(
+        inputFrame: CameraBridgeViewBase.CvCameraViewFrame,
+        markerSize: Float,
+        cameraMatrix: Mat,
+        distCoeffs: Mat,
+        outputCorners: MutableList<Mat>? = null,
+        outputIds: Mat? = null,
+    ): MutableList<MarkersInFrame> {
+        val markersDetector = MarkersDetector(
+            markerDefinition = emptyList(),
+            arucoDictionaryType = arucoDictionaryType,
+            cameraMatrix = cameraMatrix,
+            distCoeffs = distCoeffs,
+            detectionProfile = detectionProfile,
+            defaultMarkerSize = markerSize
+        )
+        return markersDetector.detectMarkers(
+            inputFrame = inputFrame,
+            outputCorners = outputCorners,
+            outputIds = outputIds
+        )
+    }
+
     override fun processFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
         
         
@@ -158,15 +187,13 @@ class TestDistanceCameraController(
         //Detectamos los marcadores
         val corners: MutableList<Mat> = mutableListOf()
         val ids: Mat = Mat()
-        val detectedMarkers = detectMarkers(
+        val detectedMarkers = detectMarkersFromFrame(
             inputFrame,
             markerSize,
-            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids,
-            detectionProfile
+            ids
         )
         if (detectedMarkers.size == 0) {
             return rgb
@@ -592,15 +619,13 @@ class TestDistanceCameraController(
         // Detect markers
         val corners: MutableList<Mat> = mutableListOf()
         val ids: Mat = Mat()
-        val detectedMarkers = detectMarkers(
+        val detectedMarkers = detectMarkersFromFrame(
             inputFrame,
             markerSize*1000,
-            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids,
-            detectionProfile
+            ids
         )
         if (detectedMarkers.size == 0) {
             return rgb
@@ -646,15 +671,13 @@ class TestDistanceCameraController(
 
         val corners: MutableList<Mat> = mutableListOf()
         val ids: Mat = Mat()
-        val detectedMarkers = detectMarkers(
+        val detectedMarkers = detectMarkersFromFrame(
             inputFrame,
             markerSize,
-            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids,
-            detectionProfile
+            ids
         )
         return if (detectedMarkers.isNotEmpty()) detectedMarkers[0].distance else null
     }
@@ -800,15 +823,13 @@ class TestDistanceCameraController(
 
         val corners: MutableList<Mat> = mutableListOf()
         val ids: Mat = Mat()
-        val detectedMarkers = detectMarkers(
+        val detectedMarkers = detectMarkersFromFrame(
             inputFrame,
             markerSize*1000,
-            arucoDictionaryType,
             cameraMatrix,
             distCoeffs,
             corners,
-            ids,
-            detectionProfile
+            ids
         )
         return if (detectedMarkers.isNotEmpty()) detectedMarkers[0].distance / 1000.0 else null // Convert to meters
     }
