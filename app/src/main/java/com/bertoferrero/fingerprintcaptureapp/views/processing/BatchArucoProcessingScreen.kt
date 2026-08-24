@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
@@ -133,6 +134,16 @@ class BatchArucoProcessingScreen : Screen {
                             ArucoTypeDropdownMenu(
                                     selectedArucoType = viewModel.selectedArucoType,
                                     onArucoTypeSelected = { viewModel.updateArucoType(it) }
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            SimpleDropdownMenu(
+                                    label = "Detection Profile",
+                                    options = DetectionProfile.entries.map { it.name }.toTypedArray(),
+                                    values = DetectionProfile.entries.toTypedArray(),
+                                    onOptionSelected = { viewModel.updateDetectionProfile(it) },
+                                    selectedValue = viewModel.detectionProfile
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))

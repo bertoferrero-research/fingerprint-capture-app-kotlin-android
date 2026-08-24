@@ -10,6 +10,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestPositioningRotationController
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestPositioningRotationSample
+import com.bertoferrero.fingerprintcaptureapp.lib.CSV_FIELD_SEPARATOR
+import com.bertoferrero.fingerprintcaptureapp.lib.toCsvDecimal
 import com.bertoferrero.fingerprintcaptureapp.models.MarkerDefinition
 import com.bertoferrero.fingerprintcaptureapp.models.SettingsParametersManager
 import com.google.gson.Gson
@@ -117,7 +119,7 @@ class TestPositioningRotationViewModel : ViewModel() {
             "rawX", "rawY", "rawZ",
             "kalmanX", "kalmanY", "kalmanZ",
             "markers_info"
-        ).joinToString(",")
+        ).joinToString(CSV_FIELD_SEPARATOR)
 
         val rows = samples.map { sample ->
             listOf(
@@ -126,14 +128,14 @@ class TestPositioningRotationViewModel : ViewModel() {
                 sample.multipleMarkersBehaviour.name,
                 sample.amountMarkersEmployed,
                 sample.sampleSpaceMillis,
-                cameraController.ransacThreshold,
-                cameraController.ransacThresholdMax ?: 0.0,
-                sample.kalmanQ,
-                sample.kalmanR,
-                sample.rawX, sample.rawY, sample.rawZ,
-                sample.kalmanX, sample.kalmanY, sample.kalmanZ,
+                cameraController.ransacThreshold.toCsvDecimal(),
+                (cameraController.ransacThresholdMax ?: 0.0).toCsvDecimal(),
+                sample.kalmanQ.toCsvDecimal(),
+                sample.kalmanR.toCsvDecimal(),
+                sample.rawX.toCsvDecimal(), sample.rawY.toCsvDecimal(), sample.rawZ.toCsvDecimal(),
+                sample.kalmanX.toCsvDecimal(), sample.kalmanY.toCsvDecimal(), sample.kalmanZ.toCsvDecimal(),
                 "\"${sample.markersEmployed}\""
-            ).joinToString(",")
+            ).joinToString(CSV_FIELD_SEPARATOR)
         }
 
         val csvString = (listOf(header) + rows).joinToString("\n")

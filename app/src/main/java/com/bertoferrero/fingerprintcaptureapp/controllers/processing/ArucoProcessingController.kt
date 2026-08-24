@@ -3,6 +3,7 @@ package com.bertoferrero.fingerprintcaptureapp.controllers.processing
 import android.content.Context
 import androidx.documentfile.provider.DocumentFile
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersDetector
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatFromFile
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.GlobalPositioner
@@ -23,7 +24,8 @@ import com.bertoferrero.fingerprintcaptureapp.lib.markers.MarkersInFrame
 class ArucoProcessingController(
     private val arucoDictionaryType: ArucoDictionaryType,
     private val markersDefinition: List<MarkerDefinition>,
-    private val multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.WEIGHTED_MEDIAN
+    private val multipleMarkersBehaviour: MultipleMarkersBehaviour = MultipleMarkersBehaviour.WEIGHTED_MEDIAN,
+    private val detectionProfile: DetectionProfile = DetectionProfile.OPTIMIZED
 ) {
     
     // Componentes de detección y posicionamiento
@@ -70,7 +72,8 @@ class ArucoProcessingController(
             markersDefinition,
             arucoDictionaryType.value,
             cameraMatrix,
-            distCoeffs
+            distCoeffs,
+            detectionProfile = detectionProfile
         )
         
         globalPositioner = GlobalPositioner(markersDefinition)

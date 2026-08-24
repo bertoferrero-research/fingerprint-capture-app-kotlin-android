@@ -15,6 +15,8 @@ import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.bertoferrero.fingerprintcaptureapp.R
 import com.bertoferrero.fingerprintcaptureapp.lib.BleScanner
+import com.bertoferrero.fingerprintcaptureapp.lib.CSV_FIELD_SEPARATOR
+import com.bertoferrero.fingerprintcaptureapp.lib.toCsvDecimal
 import com.bertoferrero.fingerprintcaptureapp.models.RssiSample
 import java.text.SimpleDateFormat
 import java.util.*
@@ -237,7 +239,11 @@ class RssiCaptureService : Service() {
         val outputStream = contentResolver.openOutputStream(newFile.uri)
             ?: throw IllegalStateException("Cannot open output stream")
         
-        outputStream.write("timestamp,time,mac_address,rssi,tx_power,pos_x,pos_y,pos_z\n".toByteArray())
+        outputStream.write(
+            listOf("timestamp", "time", "mac_address", "rssi", "tx_power", "pos_x", "pos_y", "pos_z")
+                .joinToString(CSV_FIELD_SEPARATOR, postfix = "\n")
+                .toByteArray()
+        )
         return outputStream
     }
 
@@ -263,7 +269,16 @@ class RssiCaptureService : Service() {
         try {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
             val dateFormated = dateFormat.format(Date(sample.timestamp))
-            val line = "${sample.timestamp},${dateFormated},${sample.macAddress},${sample.rssi},${sample.txPower},${sample.posX},${sample.posY},${sample.posZ}\n"
+            val line = listOf(
+                sample.timestamp,
+                dateFormated,
+                sample.macAddress,
+                sample.rssi,
+                sample.txPower,
+                sample.posX.toCsvDecimal(),
+                sample.posY.toCsvDecimal(),
+                sample.posZ.toCsvDecimal()
+            ).joinToString(CSV_FIELD_SEPARATOR, postfix = "\n")
             // Write the main log
             val writter = getCsvOutputStream("all")
             writter.write(line.toByteArray())

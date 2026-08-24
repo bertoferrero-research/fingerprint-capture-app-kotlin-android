@@ -9,6 +9,8 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bertoferrero.fingerprintcaptureapp.controllers.cameracontroller.TestDistanceCameraController
+import com.bertoferrero.fingerprintcaptureapp.lib.CSV_FIELD_SEPARATOR
+import com.bertoferrero.fingerprintcaptureapp.lib.toCsvDecimal
 import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.CvCameraViewFrameMockFromImage
 import com.bertoferrero.fingerprintcaptureapp.lib.opencv.MatFromFile
@@ -225,9 +227,15 @@ class BatchDistanceTestViewModel : ViewModel() {
             val profileName = cameraController.detectionProfile.name
             val fileName = "batch_distance_results_${profileName}_$timestamp.csv"
 
-            val header = "filename,distance_meters,error_message,detection_profile"
+            val header = listOf("filename", "distance_meters", "error_message", "detection_profile")
+                .joinToString(CSV_FIELD_SEPARATOR)
             val csvRows = results.map { result ->
-                "${result.fileName},${result.distance ?: ""},${result.error ?: ""},${result.detectionProfile}"
+                listOf(
+                    result.fileName,
+                    result.distance?.toCsvDecimal() ?: "",
+                    result.error ?: "",
+                    result.detectionProfile
+                ).joinToString(CSV_FIELD_SEPARATOR)
             }
             val csvContent = (listOf(header) + csvRows).joinToString("\n")
 

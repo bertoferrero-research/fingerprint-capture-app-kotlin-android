@@ -10,6 +10,8 @@ import androidx.compose.runtime.setValue
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bertoferrero.fingerprintcaptureapp.lib.CSV_FIELD_SEPARATOR
+import com.bertoferrero.fingerprintcaptureapp.lib.toCsvDecimal
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import kotlinx.coroutines.Dispatchers
@@ -339,7 +341,9 @@ class OnlineSamplePostprocessingViewModel(
             ?: throw Exception("Cannot open file: ${allCsvFile.name}")
 
         currentStatus = "Reading all.csv..."
-        val rows: List<Map<String,String>> = csvReader().readAllWithHeader(inputStreamAllCsv)
+        // all.csv se escribe con ";" como separador (ver RssiCaptureService) para poder usar
+        // coma como separador decimal, así que hay que leerlo con el mismo delimitador.
+        val rows: List<Map<String,String>> = csvReader { delimiter = ';' }.readAllWithHeader(inputStreamAllCsv)
         val rowsTotal = rows.size
         var currentRow = 0
         rows.forEach { row ->
@@ -351,7 +355,7 @@ class OnlineSamplePostprocessingViewModel(
                 var headers = row.keys.toMutableList()
                 headers.add("position_calculation_timestamp")
                 headers.add("position_calculation_status")
-                outputStream.write((headers.joinToString(separator=",")+"\n").toByteArray())
+                outputStream.write((headers.joinToString(separator=CSV_FIELD_SEPARATOR)+"\n").toByteArray())
                 writeHeaders = false
             }
 
@@ -410,16 +414,16 @@ class OnlineSamplePostprocessingViewModel(
 
             // Actualizamos la posición de la fila
             var outputRow = row.toMutableMap()
-            outputRow["pos_x"] = lastPosition[0].toString()
-            outputRow["pos_y"] = lastPosition[1].toString()
-            outputRow["pos_z"] = lastPosition[2].toString()
+            outputRow["pos_x"] = lastPosition[0].toCsvDecimal()
+            outputRow["pos_y"] = lastPosition[1].toCsvDecimal()
+            outputRow["pos_z"] = lastPosition[2].toCsvDecimal()
             //Añadimos el nuevo dato usando una lista para segurar que se quede al final
             var listOutputRow = outputRow.values.toMutableList()
             listOutputRow.add(lastPositionTimestamp)
             listOutputRow.add(lastPositionStatus)
 
             //Escribimos la salida
-            outputStream.write((listOutputRow.joinToString(separator=",")+"\n").toByteArray())
+            outputStream.write((listOutputRow.joinToString(separator=CSV_FIELD_SEPARATOR)+"\n").toByteArray())
 
         }
         inputStreamAllCsv.close()
@@ -468,7 +472,7 @@ class OnlineSamplePostprocessingViewModel(
             "is_ransac_excluded",
             "image_timestamp"
         )
-        statsStream.write((headers.joinToString(",") + "\n").toByteArray())
+        statsStream.write((headers.joinToString(CSV_FIELD_SEPARATOR) + "\n").toByteArray())
     }
 
     /**
@@ -493,10 +497,10 @@ class OnlineSamplePostprocessingViewModel(
                 "GLOBAL",
                 "",
                 globalPosition.markerId.toString(),
-                globalPosition.x.toString(),
-                globalPosition.y.toString(),
-                globalPosition.z.toString(),
-                globalPosition.ransacThreshold.toString(),
+                globalPosition.x.toCsvDecimal(),
+                globalPosition.y.toCsvDecimal(),
+                globalPosition.z.toCsvDecimal(),
+                globalPosition.ransacThreshold.toCsvDecimal(),
                 arithmeticFilterType.name,
                 globalPosition.isGlobalPosition.toString(),
                 globalPosition.markerCount.toString(),
@@ -506,7 +510,7 @@ class OnlineSamplePostprocessingViewModel(
                 (globalPosition.ransacExcluded ?: false).toString(),
                 ""
             )
-            statsStream.write((globalLine.joinToString(",") + "\n").toByteArray())
+            statsStream.write((globalLine.joinToString(CSV_FIELD_SEPARATOR) + "\n").toByteArray())
         } else {
             // No se calculó posición global
             val noPositionLine = listOf(
@@ -527,7 +531,7 @@ class OnlineSamplePostprocessingViewModel(
                 "false",
                 ""
             )
-            statsStream.write((noPositionLine.joinToString(",") + "\n").toByteArray())
+            statsStream.write((noPositionLine.joinToString(CSV_FIELD_SEPARATOR) + "\n").toByteArray())
         }
         
         // 2. Escribir línea por cada imagen procesada
@@ -551,9 +555,9 @@ class OnlineSamplePostprocessingViewModel(
                             "IMAGE",
                             imageInfo.fileName,
                             position.markerId.toString(),
-                            position.x.toString(),
-                            position.y.toString(),
-                            position.z.toString(),
+                            position.x.toCsvDecimal(),
+                            position.y.toCsvDecimal(),
+                            position.z.toCsvDecimal(),
                             "",
                             "",
                             "false",
@@ -564,7 +568,7 @@ class OnlineSamplePostprocessingViewModel(
                             (position.ransacExcluded ?: false).toString(),
                             imageTimestamp
                         )
-                        statsStream.write((imageLine.joinToString(",") + "\n").toByteArray())
+                        statsStream.write((imageLine.joinToString(CSV_FIELD_SEPARATOR) + "\n").toByteArray())
                     }
                 } else {
                     // Imagen procesada pero sin detecciones
@@ -586,7 +590,7 @@ class OnlineSamplePostprocessingViewModel(
                         "false",
                         imageTimestamp
                     )
-                    statsStream.write((noDetectionLine.joinToString(",") + "\n").toByteArray())
+                    statsStream.write((noDetectionLine.joinToString(CSV_FIELD_SEPARATOR) + "\n").toByteArray())
                 }
             } else {
                 // Error al procesar la imagen
@@ -608,7 +612,7 @@ class OnlineSamplePostprocessingViewModel(
                     "false",
                     imageTimestamp
                 )
-                statsStream.write((errorLine.joinToString(",") + "\n").toByteArray())
+                statsStream.write((errorLine.joinToString(CSV_FIELD_SEPARATOR) + "\n").toByteArray())
             }
         }
     }
