@@ -21,6 +21,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoTypeDropdownMenu
 import com.bertoferrero.fingerprintcaptureapp.views.components.NumberField
 import com.bertoferrero.fingerprintcaptureapp.views.components.SimpleDropdownMenu
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
 import com.bertoferrero.fingerprintcaptureapp.viewmodels.processing.OnlineSamplePostprocessingViewModel
 
@@ -200,6 +201,16 @@ class OnlineSamplePostprocessingScreen : Screen {
                             ArucoTypeDropdownMenu(
                                     selectedArucoType = viewModel.selectedArucoType,
                                     onArucoTypeSelected = { viewModel.updateArucoType(it) }
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            SimpleDropdownMenu(
+                                    label = "Detection Profile",
+                                    options = DetectionProfile.entries.map { it.name }.toTypedArray(),
+                                    values = DetectionProfile.entries.toTypedArray(),
+                                    onOptionSelected = { viewModel.updateDetectionProfile(it) },
+                                    selectedValue = viewModel.detectionProfile
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))

@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bertoferrero.fingerprintcaptureapp.lib.CSV_FIELD_SEPARATOR
 import com.bertoferrero.fingerprintcaptureapp.lib.toCsvDecimal
+import com.bertoferrero.fingerprintcaptureapp.lib.markers.DetectionProfile
 import com.bertoferrero.fingerprintcaptureapp.lib.positioning.MultipleMarkersBehaviour
 import com.bertoferrero.fingerprintcaptureapp.views.components.ArucoDictionaryType
 import kotlinx.coroutines.Dispatchers
@@ -70,6 +71,10 @@ class OnlineSamplePostprocessingViewModel(
 
     // Filtro aritmético
     var arithmeticFilterType: MultipleMarkersBehaviour by mutableStateOf(MultipleMarkersBehaviour.WEIGHTED_MEDIAN)
+        private set
+
+    // Perfil de detección (BASE = comportamiento pre-optimizaciones, OPTIMIZED = actual)
+    var detectionProfile: DetectionProfile by mutableStateOf(DetectionProfile.OPTIMIZED)
         private set
 
     // Estado del procesamiento
@@ -192,6 +197,15 @@ class OnlineSamplePostprocessingViewModel(
     }
 
     /**
+     * Actualiza el perfil de detección.
+     */
+    fun updateDetectionProfile(profile: DetectionProfile) {
+        detectionProfile = profile
+        initializeProcessingController() // Reinicializar con nueva configuración
+        clearError()
+    }
+
+    /**
      * Carga las definiciones de marcadores desde el archivo JSON.
      */
     private fun loadMarkersFromFile(context: Context) {
@@ -225,7 +239,8 @@ class OnlineSamplePostprocessingViewModel(
             processingController = ArucoProcessingController(
                 arucoDictionaryType = selectedArucoType,
                 markersDefinition = markersDefinition,
-                multipleMarkersBehaviour = arithmeticFilterType
+                multipleMarkersBehaviour = arithmeticFilterType,
+                detectionProfile = detectionProfile
             ).apply {
                 updateRansacParameters(ransacMinThreshold, ransacMaxThreshold, ransacStep)
             }
