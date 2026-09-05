@@ -330,7 +330,7 @@ class BatchArucoProcessingViewModel(
     ) {
 
         
-        val csvHeader = "filename;marker_id;x;y;z;ransac_threshold;filter_type;is_global_position;marker_count;image_markers_detected;ransac_population;is_ransac_excluded\n"
+        val csvHeader = "filename;marker_id;x;y;z;ransac_threshold;filter_type;is_global_position;marker_count;image_markers_detected;ransac_population;is_ransac_excluded;detection_profile\n"
         outputStream.write(csvHeader.toByteArray())
 
         // Procesar cada imagen
@@ -345,7 +345,7 @@ class BatchArucoProcessingViewModel(
             try {
                 // Llamar directamente al controlador
                 val result = processingController!!.processImageFile(context, imageFile)
-                
+
                 // Escribir información detallada de procesamiento por imagen
                 for (imageInfo in result.processedImages) {
                     if (imageInfo.success) {
@@ -353,24 +353,24 @@ class BatchArucoProcessingViewModel(
                         if (result.detectedPositions.isNotEmpty()) {
                             for (position in result.detectedPositions) {
                                 val ransacPopulation = position.ransacResult?.size ?: 0
-                                val csvLine = "${imageInfo.fileName};${position.markerId};${position.x.toCsvDecimal()};${position.y.toCsvDecimal()};${position.z.toCsvDecimal()};${position.ransacThreshold.toCsvDecimal()};${arithmeticFilterType.name};${position.isGlobalPosition};${position.markerCount};${imageInfo.markerCount};$ransacPopulation;${position.ransacExcluded}\n"
+                                val csvLine = "${imageInfo.fileName};${position.markerId};${position.x.toCsvDecimal()};${position.y.toCsvDecimal()};${position.z.toCsvDecimal()};${position.ransacThreshold.toCsvDecimal()};${arithmeticFilterType.name};${position.isGlobalPosition};${position.markerCount};${imageInfo.markerCount};$ransacPopulation;${position.ransacExcluded};${detectionProfile.name}\n"
                                 outputStream.write(csvLine.toByteArray())
                             }
                         } else {
                             // Imagen procesada correctamente pero sin detecciones
-                            val noDetectionLine = "${imageInfo.fileName};NO_DETECTION;;;;;;;${imageInfo.markerCount};0;[]\n"
+                            val noDetectionLine = "${imageInfo.fileName};NO_DETECTION;;;;;;;${imageInfo.markerCount};0;[];;${detectionProfile.name}\n"
                             outputStream.write(noDetectionLine.toByteArray())
                         }
                     } else {
                         // Error específico de esta imagen
-                        val errorLine = "${imageInfo.fileName};ERROR;;;;;${imageInfo.error ?: "Image processing error"};;;${imageInfo.markerCount}\n"
+                        val errorLine = "${imageInfo.fileName};ERROR;;;;;${imageInfo.error ?: "Image processing error"};;;${imageInfo.markerCount};;;${detectionProfile.name}\n"
                         outputStream.write(errorLine.toByteArray())
                     }
                 }
 
                 // Si hubo error global (no por imagen individual)
                 if (!result.success && result.error != null) {
-                    val globalErrorLine = "${imageFile.name};GLOBAL_ERROR;;;;;${result.error};;;0\n"
+                    val globalErrorLine = "${imageFile.name};GLOBAL_ERROR;;;;;${result.error};;;0;;;${detectionProfile.name}\n"
                     outputStream.write(globalErrorLine.toByteArray())
                 }
 
@@ -379,7 +379,7 @@ class BatchArucoProcessingViewModel(
                       "Error processing image ${imageFile.name}", e)
 
                 // Escribir línea de error al CSV
-                val errorLine = "${imageFile.name};EXCEPTION;;;;;${e.message};;;0\n"
+                val errorLine = "${imageFile.name};EXCEPTION;;;;;${e.message};;;0;;;${detectionProfile.name}\n"
                 outputStream.write(errorLine.toByteArray())
             }
         }
@@ -399,22 +399,22 @@ class BatchArucoProcessingViewModel(
             processedImages = 0
         }
         
-        val csvHeader = "image_name;marker_id;x;y;z;ransac_threshold;filter_type;is_global_position;marker_count;total_images_processed;successful_images;ransac_population;is_ransac_excluded\n"
+        val csvHeader = "image_name;marker_id;x;y;z;ransac_threshold;filter_type;is_global_position;marker_count;total_images_processed;successful_images;ransac_population;is_ransac_excluded;detection_profile\n"
         outputStream.write(csvHeader.toByteArray())
 
         try {
             // Procesar todas las imágenes juntas
             val result = processingController!!.processImageFiles(context, imageFiles)
-            
+
             // Estadísticas del lote
             val totalImagesProcessed = result.processedImages.size
             val successfulImages = result.processedImages.count { it.success }
-            
+
             // Escribir posición global (si existe)
             val globalPosition = result.detectedPositions.find { it.isGlobalPosition }
             if (globalPosition != null) {
                 val ransacPopulation = globalPosition.ransacResult?.size ?: 0
-                val csvLine = ";${globalPosition.markerId};${globalPosition.x.toCsvDecimal()};${globalPosition.y.toCsvDecimal()};${globalPosition.z.toCsvDecimal()};${globalPosition.ransacThreshold.toCsvDecimal()};${arithmeticFilterType.name};${globalPosition.isGlobalPosition};${globalPosition.markerCount};$totalImagesProcessed;$successfulImages;$ransacPopulation;${globalPosition.ransacExcluded}\n"
+                val csvLine = ";${globalPosition.markerId};${globalPosition.x.toCsvDecimal()};${globalPosition.y.toCsvDecimal()};${globalPosition.z.toCsvDecimal()};${globalPosition.ransacThreshold.toCsvDecimal()};${arithmeticFilterType.name};${globalPosition.isGlobalPosition};${globalPosition.markerCount};$totalImagesProcessed;$successfulImages;$ransacPopulation;${globalPosition.ransacExcluded};${detectionProfile.name}\n"
                 outputStream.write(csvLine.toByteArray())
             }
 
@@ -422,33 +422,33 @@ class BatchArucoProcessingViewModel(
             val individualPositions = result.detectedPositions.filter { !it.isGlobalPosition }
             for (position in individualPositions) {
                 val imageName = position.sourceIdentifier ?: ""
-                val csvLine = "$imageName;${position.markerId};${position.x.toCsvDecimal()};${position.y.toCsvDecimal()};${position.z.toCsvDecimal()};;;${position.isGlobalPosition};${position.markerCount};;$successfulImages;;${position.ransacExcluded}\n"
+                val csvLine = "$imageName;${position.markerId};${position.x.toCsvDecimal()};${position.y.toCsvDecimal()};${position.z.toCsvDecimal()};;;${position.isGlobalPosition};${position.markerCount};;$successfulImages;;${position.ransacExcluded};${detectionProfile.name}\n"
                 outputStream.write(csvLine.toByteArray())
             }
 
             // Escribir información de imágenes con errores
             for (imageInfo in result.processedImages.filter { !it.success }) {
-                val errorLine = "${imageInfo.fileName};ERROR;;;;;${imageInfo.error ?: "Image processing error"};;;${imageInfo.markerCount};$totalImagesProcessed;$successfulImages;0;\n"
+                val errorLine = "${imageInfo.fileName};ERROR;;;;;${imageInfo.error ?: "Image processing error"};;;${imageInfo.markerCount};$totalImagesProcessed;$successfulImages;0;${detectionProfile.name}\n"
                 outputStream.write(errorLine.toByteArray())
             }
 
             // Si hubo error global
             if (!result.success && result.error != null) {
-                val globalErrorLine = ";GLOBAL_ERROR;;;;;${result.error};;;0;$totalImagesProcessed;$successfulImages\n"
+                val globalErrorLine = ";GLOBAL_ERROR;;;;;${result.error};;;0;$totalImagesProcessed;$successfulImages;;${detectionProfile.name}\n"
                 outputStream.write(globalErrorLine.toByteArray())
             }
 
             // Si no se detectaron posiciones
             if (result.detectedPositions.isEmpty() && result.success) {
-                val noDetectionLine = ";NO_DETECTION;;;;;;;0;$totalImagesProcessed;$successfulImages;\n"
+                val noDetectionLine = ";NO_DETECTION;;;;;;;0;$totalImagesProcessed;$successfulImages;;;${detectionProfile.name}\n"
                 outputStream.write(noDetectionLine.toByteArray())
             }
 
         } catch (e: Exception) {
-            Log.e("BatchArucoProcessingViewModel", 
+            Log.e("BatchArucoProcessingViewModel",
                   "Error processing unified batch", e)
-            
-            val errorLine = ";EXCEPTION;;;;;${e.message};;;0;${imageFiles.size};0;0\n"
+
+            val errorLine = ";EXCEPTION;;;;;${e.message};;;0;${imageFiles.size};0;0;${detectionProfile.name}\n"
             outputStream.write(errorLine.toByteArray())
         }
         
