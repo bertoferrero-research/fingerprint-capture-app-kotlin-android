@@ -66,7 +66,7 @@ class OnlineSamplePostprocessingViewModel(
     var ransacMaxThreshold: Double by mutableStateOf(0.4)
         private set
 
-    var ransacStep: Double by mutableStateOf(0.1)
+    var ransacStep: Double by mutableStateOf(0.01)
         private set
 
     // Filtro aritmético

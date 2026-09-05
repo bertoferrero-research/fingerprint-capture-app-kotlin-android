@@ -40,7 +40,7 @@ class ArucoProcessingController(
     // Parámetros RANSAC
     var ransacMinThreshold: Double = 0.2
     var ransacMaxThreshold: Double = 0.4
-    var ransacStep: Double = 0.1
+    var ransacStep: Double = 0.01
     
     init {
         loadCameraCalibrationParameters()

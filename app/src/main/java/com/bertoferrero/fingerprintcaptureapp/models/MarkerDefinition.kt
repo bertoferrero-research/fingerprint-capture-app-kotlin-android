@@ -7,7 +7,8 @@ package com.bertoferrero.fingerprintcaptureapp.models
  * @property position Marker position.
  * @property size Marker size.
  * @property rotation Marker rotation.
- * @property max_distance Maximum allowed distance for the marker (in millimeters).
+ * @property max_distance Maximum allowed distance for the marker (in millimeters). Null, zero or
+ *   negative means no limit is applied.
  */
 class MarkerDefinition(
     public var id: Int,

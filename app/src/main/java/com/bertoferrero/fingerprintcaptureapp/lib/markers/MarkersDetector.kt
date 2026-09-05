@@ -313,9 +313,9 @@ class MarkersDetector(
                     // Calcular la distancia del marcador para validaciones adicionales
                     val markerDistance = calculateMarkerDistance(tvecs)
 
-                    // Check max distance if defined
+                    // Check max distance if defined (0 or negative = sin límite)
                     val maxDistance = markerMaxDistanceMap[markerId]
-                    if (maxDistance != null && markerDistance > maxDistance){
+                    if (maxDistance != null && maxDistance > 0 && markerDistance > maxDistance){
                         continue
                     }
 
